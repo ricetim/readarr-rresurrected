@@ -25,6 +25,9 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **A test that expired on 13 July 2026 no longer fails permanently.** The malformed-cookie test
+  hardcoded a future date that has since passed; it is now generated relative to the current
+  date so it cannot expire again.
 - **Fewer database lock errors on large libraries.** Bulk updates now run in a single
   transaction instead of committing row by row, and SQLite waits longer for a busy lock before
   giving up. Refreshes on big libraries are faster and less likely to fail part-way.
