@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.0.3] - 2026-09-08
+
+### Fixed
+
 - **Author search works again for names the suggestion endpoint cannot resolve.** Goodreads
   versioned a type in their search schema, which made the author-name fallback query invalid,
   so those searches failed outright instead of returning results. The fallback is now also
@@ -149,7 +153,8 @@ self-hosted metadata service bundled into the same container.
 - `CreateEmptyAuthorFolders` is respected.
 - PDF tag reading no longer crashes on a circular reference.
 
-[Unreleased]: https://github.com/ricetim/readarr-rresurrected/compare/v11.0.2...HEAD
+[Unreleased]: https://github.com/ricetim/readarr-rresurrected/compare/v11.0.3...HEAD
+[11.0.3]: https://github.com/ricetim/readarr-rresurrected/releases/tag/v11.0.3
 [11.0.2]: https://github.com/ricetim/readarr-rresurrected/releases/tag/v11.0.2
 [11.0.1]: https://github.com/ricetim/readarr-rresurrected/releases/tag/v11.0.1
 [11.0.0]: https://github.com/ricetim/readarr-rresurrected/releases/tag/v11.0.0
