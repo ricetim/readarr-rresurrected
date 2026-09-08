@@ -91,7 +91,9 @@ namespace NzbDrone.Core.Books
             // required by the DB and let RefreshAuthorCommand fill in the rest.
             var metadata = newAuthor.Metadata.Value;
 
-            metadata.Name = metadata.Name.CleanSpaces();
+            // Null-safe: CleanSpaces calls Regex.Replace, which rejects null input, and an
+            // import list can supply an author with no name at all.
+            metadata.Name = metadata.Name?.CleanSpaces();
 
             if (metadata.TitleSlug.IsNullOrWhiteSpace())
             {
