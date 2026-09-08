@@ -121,13 +121,17 @@ query GetEditions($workId: ID!, $pagination: PaginationInput!) {
 }
 """
 
+# The edge interface exposes no "node"; it must be reached through the concrete edge
+# type. Goodreads versioned that type to SearchBookEdgeV2, which broke the previous
+# "edges { node { ... } }" form with:
+#   Field 'node' in type 'SearchResultsEdge' is undefined
 _SEARCH_BY_AUTHOR_QUERY = """
 query SearchByAuthor($query: String!) {
   searchResults(input: {query: $query, type: BOOK, field: AUTHOR}, pagination: {limit: 20}) {
     totalCount
     edges {
-      node {
-        ... on Book {
+      ... on SearchBookEdgeV2 {
+        node {
           legacyId
           work { legacyId }
           primaryContributorEdge { node { legacyId name } }
@@ -723,7 +727,11 @@ class GoodreadsClient:
             pass
 
         # Fallback: author-field search (handles full names like "Kathryn Paige Harden"
-        # that getSearchSuggestions returns RESOURCE_NOT_FOUND for)
+        # that getSearchSuggestions returns RESOURCE_NOT_FOUND for).
+        #
+        # Best effort by design. The primary has already produced nothing by this point,
+        # so any failure here means "no results", not "search is broken" - previously a
+        # Goodreads schema change here surfaced to the user as a hard error.
         try:
             data = await self.graphql_query(_SEARCH_BY_AUTHOR_QUERY, {"query": query})
             edges = data.get("searchResults", {}).get("edges", []) or []
@@ -743,6 +751,9 @@ class GoodreadsClient:
                 })
             return results
         except LookupError:
+            return []
+        except Exception as exc:
+            logger.warning("Author-field search fallback failed for %r: %s", query, exc)
             return []
 
     async def complete_author_background(

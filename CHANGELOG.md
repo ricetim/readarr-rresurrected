@@ -25,6 +25,11 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Author search works again for names the suggestion endpoint cannot resolve.** Goodreads
+  versioned a type in their search schema, which made the author-name fallback query invalid,
+  so those searches failed outright instead of returning results. The fallback is now also
+  best-effort: if that schema changes again, an affected search returns no results rather than
+  reporting search as broken. Reported by [@kyleslaw88](https://github.com/kyleslaw88).
 - **Goodreads list imports no longer abort when an author has no slug.** A shelf import can
   supply only a foreign ID and a name; those authors were saved with an empty title slug, which
   violates a database constraint and aborted the entire sync. Minimum metadata is now filled in

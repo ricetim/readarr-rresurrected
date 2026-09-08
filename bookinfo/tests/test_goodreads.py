@@ -404,6 +404,71 @@ class TestSearch:
         await client.close()
 
 
+    @respx.mock
+    async def test_falls_back_to_author_search_with_versioned_edge_type(self):
+        """Goodreads versioned the edge type; node hangs off SearchBookEdgeV2."""
+        respx.post(GRAPHQL_URL).mock(
+            side_effect=[
+                # primary returns nothing, so the author-field fallback runs
+                httpx.Response(200, json={"data": {"getSearchSuggestions": {"totalCount": 0, "edges": []}}}),
+                httpx.Response(
+                    200,
+                    json={
+                        "data": {
+                            "searchResults": {
+                                "totalCount": 1,
+                                "edges": [
+                                    {
+                                        "__typename": "SearchBookEdgeV2",
+                                        "node": {
+                                            "legacyId": 57423806,
+                                            "work": {"legacyId": 65903163},
+                                            "primaryContributorEdge": {
+                                                "node": {"legacyId": 21283382, "name": "Kathryn Paige Harden"}
+                                            },
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    },
+                ),
+            ]
+        )
+        client = GoodreadsClient()
+        results = await client.search("Kathryn Paige Harden")
+        assert results == [{"BookId": 57423806, "WorkId": 65903163, "Author": {"Id": 21283382}}]
+        await client.close()
+
+    @respx.mock
+    async def test_search_returns_empty_when_the_fallback_query_is_rejected(self):
+        """A schema change in the fallback must read as "no results", not a hard error.
+
+        Goodreads renaming the edge type made this query invalid, and the resulting
+        exception propagated to the user as a failed search rather than an empty one.
+        """
+        respx.post(GRAPHQL_URL).mock(
+            side_effect=[
+                httpx.Response(200, json={"data": {"getSearchSuggestions": {"totalCount": 0, "edges": []}}}),
+                httpx.Response(
+                    200,
+                    json={
+                        "errors": [
+                            {
+                                "message": "Validation error of type FieldUndefined: Field 'node' in "
+                                           "type 'SearchResultsEdge' is undefined @ 'searchResults/edges/node'"
+                            }
+                        ]
+                    },
+                ),
+            ]
+        )
+        client = GoodreadsClient()
+        results = await client.search("Kathryn Paige Harden")
+        assert results == []
+        await client.close()
+
+
 class TestCompleteAuthorBackground:
     async def test_returns_dict_with_foreign_id_and_works(self):
         """complete_author_background should return a dict with ForeignId and Works."""
