@@ -25,6 +25,11 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Goodreads list imports no longer abort when an author has no slug.** A shelf import can
+  supply only a foreign ID and a name; those authors were saved with an empty title slug, which
+  violates a database constraint and aborted the entire sync. Minimum metadata is now filled in
+  at add time, with the full record still populated by the refresh that follows.
+  Thanks to [@FrankGasparovic](https://github.com/FrankGasparovic) for diagnosing and fixing this.
 - **A test that expired on 13 July 2026 no longer fails permanently.** The malformed-cookie test
   hardcoded a future date that has since passed; it is now generated relative to the current
   date so it cannot expire again.
