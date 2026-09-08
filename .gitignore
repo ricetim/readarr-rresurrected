@@ -155,3 +155,8 @@ _temp_*/**/*
 .config/
 .superpowers/
 .worktrees/
+
+# Python (bookinfo)
+__pycache__/
+*.py[cod]
+.pytest_cache/
