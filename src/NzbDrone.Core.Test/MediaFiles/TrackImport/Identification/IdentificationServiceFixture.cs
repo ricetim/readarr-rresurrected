@@ -258,5 +258,31 @@ namespace NzbDrone.Core.Test.MediaFiles.BookImport.Identification
             localBook.Author.Should().Be(author);
             localBook.Edition.Should().Be(edition);
         }
+
+        [Test]
+        public void bypass_sets_part_count_so_multi_file_audiobooks_get_distinct_filenames()
+        {
+            var author = Builder<Author>.CreateNew().Build();
+            var book = Builder<Book>.CreateNew().Build();
+            var edition = Builder<Edition>.CreateNew()
+                .With(e => e.Monitored = true)
+                .Build();
+            book.Editions = new LazyLoaded<List<Edition>>(new List<Edition> { edition });
+
+            var localBooks = Builder<LocalBook>.CreateListOfSize(3).Build().ToList();
+
+            var idOverrides = new IdentificationOverrides { Author = author, Book = book };
+            var config = new ImportDecisionMakerConfig
+            {
+                BypassMatchingSpecs = true,
+                SingleRelease = true
+            };
+
+            Subject.Identify(localBooks, idOverrides, config);
+
+            // FileNameBuilder only emits the {PartNumber} token when PartCount > 1, so leaving
+            // this at 0 renders every part to the same destination path.
+            localBooks.Should().OnlyContain(b => b.PartCount == 3);
+        }
     }
 }

@@ -140,6 +140,11 @@ namespace NzbDrone.Core.MediaFiles.BookImport.Identification
                         localTrack.Edition = edition;
                         localTrack.Book = idOverrides.Book;
                         localTrack.Author = idOverrides.Author;
+
+                        // PopulateMatch does this on the normal path. Without it every part of a
+                        // multi-file audiobook keeps PartCount 0, FileNameBuilder then drops the
+                        // {PartNumber} token, and all the parts collide on one destination name.
+                        localTrack.PartCount = localBookRelease.LocalBooks.Count;
                     }
 
                     return;
