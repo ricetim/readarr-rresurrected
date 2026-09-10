@@ -25,6 +25,20 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.0.4] - 2026-09-10
+
+### Fixed
+
+- **Multi-file audiobooks now import every file.** An audiobook split across many audio files
+  imported only its first file once the download finished, while importing the same files by
+  hand worked. Every part was being given the same destination filename, so each file after the
+  first was refused because that name was already taken. Importing by hand set the part count
+  itself, which is why only automatic import was affected.
+- **Audiobook parts whose tags carry no track number are numbered by filename.** Files without a
+  usable track number in their tags were all treated as the same part of the book and quietly
+  discarded down to one. Parts are now numbered in filename order whenever the tags do not tell
+  them apart, which also covers multi-disc rips that restart numbering on each disc.
+
 ## [11.0.3] - 2026-09-08
 
 ### Fixed
