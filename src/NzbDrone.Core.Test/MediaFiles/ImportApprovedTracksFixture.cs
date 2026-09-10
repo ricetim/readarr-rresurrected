@@ -133,6 +133,62 @@ namespace NzbDrone.Core.Test.MediaFiles
         }
 
         [Test]
+        public void should_import_all_parts_of_a_multi_file_audiobook_without_track_tags()
+        {
+            var template = _approvedDecisions.First().Item;
+            var all = new List<ImportDecision<LocalBook>>();
+
+            // ImportDecisionMaker defaults Part to 1 when a file has no track number tag,
+            // which is the normal case for a multi-file audiobook rip.
+            foreach (var name in new[] { "part1.mp3", "part2.mp3", "part3.mp3" })
+            {
+                all.Add(new ImportDecision<LocalBook>(
+                            new LocalBook
+                            {
+                                Author = template.Author,
+                                Book = template.Book,
+                                Edition = template.Edition,
+                                Part = 1,
+                                Path = Path.Combine(template.Author.Path, name),
+                                Quality = new QualityModel(Quality.MP3),
+                                FileTrackInfo = new ParsedTrackInfo()
+                            }));
+            }
+
+            var result = Subject.Import(all, false);
+
+            result.Where(i => i.Result == ImportResultType.Imported).Should().HaveCount(3);
+        }
+
+        [Test]
+        public void should_preserve_part_numbers_that_came_from_track_tags()
+        {
+            var template = _approvedDecisions.First().Item;
+            var all = new List<ImportDecision<LocalBook>>();
+
+            // Filename order is deliberately the reverse of tag order, so a renumber would show up.
+            foreach (var (name, part) in new[] { ("a.mp3", 3), ("b.mp3", 2), ("c.mp3", 1) })
+            {
+                all.Add(new ImportDecision<LocalBook>(
+                            new LocalBook
+                            {
+                                Author = template.Author,
+                                Book = template.Book,
+                                Edition = template.Edition,
+                                Part = part,
+                                Path = Path.Combine(template.Author.Path, name),
+                                Quality = new QualityModel(Quality.MP3),
+                                FileTrackInfo = new ParsedTrackInfo()
+                            }));
+            }
+
+            Subject.Import(all, false).Where(i => i.Result == ImportResultType.Imported).Should().HaveCount(3);
+
+            all.Single(d => d.Item.Path.EndsWith("a.mp3")).Item.Part.Should().Be(3);
+            all.Single(d => d.Item.Path.EndsWith("c.mp3")).Item.Part.Should().Be(1);
+        }
+
+        [Test]
         public void should_move_new_downloads()
         {
             Subject.Import(new List<ImportDecision<LocalBook>> { _approvedDecisions.First() }, true);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NLog;
+using NzbDrone.Common;
 using NzbDrone.Common.Disk;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Instrumentation.Extensions;
@@ -134,9 +135,17 @@ namespace NzbDrone.Core.MediaFiles.BookImport
                 //     RemoveExistingTrackFiles(author, book);
                 // }
 
-                // Make sure part numbers are populated for audiobooks
-                // If all audio files and all part numbers are zero, set them by filename order
-                if (decisionList.All(b => MediaFileExtensions.AudioExtensions.Contains(Path.GetExtension(b.Item.Path)) && b.Item.Part == 0))
+                // Make sure part numbers are populated for audiobooks.
+                // Files whose tags carry no usable track number all arrive with the same part
+                // (ImportDecisionMaker defaults it to 1), as do multi-disc rips that restart
+                // numbering per disc. The already-imported check below dedupes on part, so any
+                // collision silently drops every file after the first. Renumber by filename
+                // order whenever the parts aren't unique, and leave usable tags alone.
+                // Distinct paths matter: the same file offered twice at different qualities is a
+                // genuine duplicate and must still be deduped down to the best copy.
+                if (decisionList.All(b => MediaFileExtensions.AudioExtensions.Contains(Path.GetExtension(b.Item.Path))) &&
+                    decisionList.Select(b => b.Item.Path).Distinct(PathEqualityComparer.Instance).Count() == decisionList.Count &&
+                    decisionList.Select(b => b.Item.Part).Distinct().Count() != decisionList.Count)
                 {
                     var part = 1;
                     foreach (var d in decisionList.OrderBy(x => PadNumbers.Replace(x.Item.Path)))
