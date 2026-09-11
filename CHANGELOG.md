@@ -25,6 +25,34 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.1.0] - 2026-09-11
+
+### New
+
+- **Ebooks and audiobooks are now ranked and cut off separately.** A quality profile used to
+  hold one ordered list of formats and a single cutoff covering both kinds of book, which meant
+  an audiobook always outranked an ebook and satisfied the cutoff on its own. Each profile now
+  has its own cutoff for ebooks and for audiobooks, set under Settings, Profiles. The format
+  ordering you already drag to arrange is the preference ranking, and it is now read separately
+  for each kind. Existing profiles are converted on upgrade: your current cutoff keeps its
+  meaning for the kind of book it named, and the other kind takes the best format the profile
+  already allows.
+- **A book can hold one ebook and one audiobook at the same time.** The two no longer compete.
+  Within each kind a single file is kept, and a format ranked higher in the profile replaces the
+  one on disk, so a preferred EPUB takes over from a PDF while the audiobook is left alone.
+  A profile that allows no formats of one kind simply never wants that kind, so nothing starts
+  downloading until you allow it.
+
+### Fixed
+
+- **Importing an ebook no longer deletes the audiobook, and the other way round.** Importing any
+  file for a book removed every file already held for it, so downloading an ebook destroyed an
+  audiobook that was already in the library, and the next audiobook import destroyed the ebook.
+- **Ebooks are no longer refused while an audiobook is on disk.** Audiobook formats sit above
+  ebook formats in the default ranking, so an ebook was judged against the audiobook and turned
+  away both when searching and when importing. A PDF was refused the same way whenever an EPUB
+  was present.
+
 ## [11.0.4] - 2026-09-10
 
 ### Fixed
