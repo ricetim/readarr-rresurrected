@@ -1,5 +1,15 @@
+using System.Collections.Generic;
+using System.Linq;
+using FizzWare.NBuilder;
+using FluentAssertions;
 using NUnit.Framework;
+using NzbDrone.Core.Books;
+using NzbDrone.Core.Datastore;
+using NzbDrone.Core.MediaFiles;
 using NzbDrone.Core.MediaFiles.BookImport.Specifications;
+using NzbDrone.Core.Parser.Model;
+using NzbDrone.Core.Profiles.Qualities;
+using NzbDrone.Core.Qualities;
 using NzbDrone.Core.Test.Framework;
 
 namespace NzbDrone.Core.Test.MediaFiles.BookImport.Specifications
@@ -7,6 +17,67 @@ namespace NzbDrone.Core.Test.MediaFiles.BookImport.Specifications
     [TestFixture]
     public class UpgradeSpecificationFixture : CoreTest<UpgradeSpecification>
     {
+        private LocalBook GivenLocalBook(Quality incoming, params Quality[] existing)
+        {
+            var author = Builder<Author>.CreateNew()
+                .With(e => e.QualityProfile = new QualityProfile
+                {
+                    Items = Core.Test.Qualities.QualityFixture.GetDefaultQualities()
+                })
+                .Build();
+
+            var files = existing
+                .Select((q, i) => new BookFile { Id = i + 1, Quality = new QualityModel(q) })
+                .ToList();
+
+            var book = Builder<Book>.CreateNew()
+                .With(b => b.BookFiles = new LazyLoaded<List<BookFile>>(files))
+                .Build();
+
+            return new LocalBook
+            {
+                Path = @"C:\Test\book.epub",
+                Quality = new QualityModel(incoming),
+                Author = author,
+                Book = book
+            };
+        }
+
+        [Test]
+        public void should_accept_an_ebook_when_only_an_audiobook_exists()
+        {
+            // Audio outranks text in the default profile, so comparing across formats
+            // rejected the ebook outright instead of letting the two sit side by side.
+            var localBook = GivenLocalBook(Quality.EPUB, Quality.MP3, Quality.MP3);
+
+            Subject.IsSatisfiedBy(localBook, null).Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void should_reject_an_ebook_format_ranked_below_the_one_on_disk()
+        {
+            // One ebook at a time, so the ranking decides. PDF sits below EPUB by default.
+            var localBook = GivenLocalBook(Quality.PDF, Quality.EPUB);
+
+            Subject.IsSatisfiedBy(localBook, null).Accepted.Should().BeFalse();
+        }
+
+        [Test]
+        public void should_accept_an_ebook_format_ranked_above_the_one_on_disk()
+        {
+            var localBook = GivenLocalBook(Quality.AZW3, Quality.EPUB);
+
+            Subject.IsSatisfiedBy(localBook, null).Accepted.Should().BeTrue();
+        }
+
+        [Test]
+        public void should_accept_a_replacement_of_the_same_format()
+        {
+            var localBook = GivenLocalBook(Quality.EPUB, Quality.EPUB);
+
+            Subject.IsSatisfiedBy(localBook, null).Accepted.Should().BeTrue();
+        }
+
         /*
         private Author _author;
         private Book _book;

@@ -26,10 +26,25 @@ namespace NzbDrone.Core.MediaFiles.BookImport.Specifications
 
         public Decision IsSatisfiedBy(LocalBook item, DownloadClientItem downloadClientItem)
         {
-            var files = item.Book?.BookFiles?.Value;
-            if (files == null || !files.Any())
+            var allFiles = item.Book?.BookFiles?.Value;
+            if (allFiles == null || !allFiles.Any())
             {
                 // No existing books, skip.  This guards against new authors not having a QualityProfile.
+                return Decision.Accept();
+            }
+
+            // Only compare against files of the same media type. An incoming ebook is not
+            // competing with an existing audiobook and must not be rejected just because the
+            // audiobook scores higher in the profile. Within a type the ranking still decides,
+            // so a PDF is rejected while a better-ranked EPUB is on disk.
+            var files = allFiles
+                .Where(f => f.Quality?.Quality != null &&
+                            item.Quality?.Quality != null &&
+                            f.Quality.Quality.MediaType == item.Quality.Quality.MediaType)
+                .ToList();
+
+            if (!files.Any())
+            {
                 return Decision.Accept();
             }
 

@@ -192,12 +192,25 @@ namespace NzbDrone.Core.Profiles.Qualities
             var qualityProfile = new QualityProfile
             {
                 Name = name,
-                Cutoff = profileCutoff,
                 Items = items,
                 MinFormatScore = 0,
                 CutoffFormatScore = 0,
                 FormatItems = formatItems
             };
+
+            // The supplied cutoff only speaks for its own media type. The other type takes the
+            // best format this profile allows, falling back to a sensible default when it
+            // allows none, so the column always holds a resolvable quality.
+            var cutoffMediaType = (cutoff ?? Quality.Unknown).MediaType;
+            var otherMediaType = cutoffMediaType == QualityMediaType.Ebook
+                ? QualityMediaType.Audiobook
+                : QualityMediaType.Ebook;
+
+            qualityProfile.SetCutoff(cutoffMediaType, profileCutoff);
+            qualityProfile.SetCutoff(
+                otherMediaType,
+                qualityProfile.LastAllowedQuality(otherMediaType)?.Id ??
+                (otherMediaType == QualityMediaType.Audiobook ? Quality.MP3.Id : Quality.EPUB.Id));
 
             return qualityProfile;
         }

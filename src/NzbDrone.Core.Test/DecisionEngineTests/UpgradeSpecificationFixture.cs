@@ -19,8 +19,11 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
             new object[] { Quality.AZW3, 1, Quality.AZW3, 2, Quality.AZW3, true },
             new object[] { Quality.MP3, 1, Quality.MP3, 2, Quality.MP3, true },
             new object[] { Quality.MP3, 1, Quality.MP3, 1, Quality.MP3, false },
-            new object[] { Quality.MP3, 1, Quality.AZW3, 2, Quality.MP3, false },
-            new object[] { Quality.MP3, 1, Quality.AZW3, 2, Quality.MP3, false },
+
+            // Across media types nothing is comparable, so an ebook neither upgrades nor
+            // downgrades an audiobook and is never blocked by one sitting on disk.
+            new object[] { Quality.MP3, 1, Quality.AZW3, 2, Quality.MP3, true },
+            new object[] { Quality.AZW3, 1, Quality.MP3, 2, Quality.AZW3, true },
             new object[] { Quality.MP3, 1, Quality.MP3, 1, Quality.MP3, false }
         };
 

@@ -33,7 +33,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
 
             _qualityProfile = new QualityProfile
             {
-                Cutoff = Quality.FLAC.Id,
+                AudiobookCutoff = Quality.FLAC.Id,
                 Items = Qualities.QualityFixture.GetDefaultQualities(),
                 UpgradeAllowed = false,
                 CutoffFormatScore = 100,

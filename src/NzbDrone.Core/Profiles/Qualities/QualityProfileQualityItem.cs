@@ -22,6 +22,14 @@ namespace NzbDrone.Core.Profiles.Qualities
             Items = new List<QualityProfileQualityItem>();
         }
 
+        /// <summary>
+        /// A group takes the media type of the qualities inside it. Groups are only ever
+        /// built from one type, since the editor keeps the two rankings separate.
+        /// </summary>
+        [JsonIgnore]
+        public QualityMediaType MediaType =>
+            (Quality ?? Items.FirstOrDefault()?.Quality ?? Core.Qualities.Quality.Unknown).MediaType;
+
         public List<Quality> GetQualities()
         {
             if (Quality == null)

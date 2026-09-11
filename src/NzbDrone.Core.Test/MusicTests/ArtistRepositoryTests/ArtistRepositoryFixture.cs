@@ -67,7 +67,7 @@ namespace NzbDrone.Core.Test.MusicTests.AuthorRepositoryTests
             {
                 Items = Qualities.QualityFixture.GetDefaultQualities(Quality.FLAC, Quality.MP3, Quality.MP3),
 
-                Cutoff = Quality.FLAC.Id,
+                AudiobookCutoff = Quality.FLAC.Id,
                 Name = "TestProfile"
             };
 

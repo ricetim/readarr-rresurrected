@@ -67,7 +67,8 @@ class QualityProfile extends Component {
       id,
       name,
       upgradeAllowed,
-      cutoff,
+      ebookCutoff,
+      audiobookCutoff,
       items,
       isDeleting
     } = this.props;
@@ -99,6 +100,7 @@ class QualityProfile extends Component {
               }
 
               if (item.quality) {
+                const cutoff = item.quality.mediaType === 'audiobook' ? audiobookCutoff : ebookCutoff;
                 const isCutoff = upgradeAllowed && item.quality.id === cutoff;
 
                 return (
@@ -112,7 +114,12 @@ class QualityProfile extends Component {
                 );
               }
 
-              const isCutoff = upgradeAllowed && item.id === cutoff;
+              // A group takes the media type of the qualities inside it.
+              const groupQuality = item.items.find((i) => i.quality);
+              const groupCutoff = groupQuality && groupQuality.quality.mediaType === 'audiobook' ?
+                audiobookCutoff :
+                ebookCutoff;
+              const isCutoff = upgradeAllowed && item.id === groupCutoff;
 
               return (
                 <Tooltip
@@ -177,7 +184,8 @@ QualityProfile.propTypes = {
   id: PropTypes.number.isRequired,
   name: PropTypes.string.isRequired,
   upgradeAllowed: PropTypes.bool.isRequired,
-  cutoff: PropTypes.number.isRequired,
+  ebookCutoff: PropTypes.number.isRequired,
+  audiobookCutoff: PropTypes.number.isRequired,
   items: PropTypes.arrayOf(PropTypes.object).isRequired,
   isDeleting: PropTypes.bool.isRequired,
   onConfirmDeleteQualityProfile: PropTypes.func.isRequired,

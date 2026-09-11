@@ -143,12 +143,18 @@ namespace NzbDrone.Core.MediaFiles.BookImport
                 // order whenever the parts aren't unique, and leave usable tags alone.
                 // Distinct paths matter: the same file offered twice at different qualities is a
                 // genuine duplicate and must still be deduped down to the best copy.
-                if (decisionList.All(b => MediaFileExtensions.AudioExtensions.Contains(Path.GetExtension(b.Item.Path))) &&
-                    decisionList.Select(b => b.Item.Path).Distinct(PathEqualityComparer.Instance).Count() == decisionList.Count &&
-                    decisionList.Select(b => b.Item.Part).Distinct().Count() != decisionList.Count)
+                // Only the audio files are renumbered. A batch can carry an ebook alongside the
+                // audiobook now that formats live side by side, and the ebook has no part number.
+                var audioDecisions = decisionList
+                    .Where(b => MediaFileExtensions.AudioExtensions.Contains(Path.GetExtension(b.Item.Path)))
+                    .ToList();
+
+                if (audioDecisions.Count > 1 &&
+                    audioDecisions.Select(b => b.Item.Path).Distinct(PathEqualityComparer.Instance).Count() == audioDecisions.Count &&
+                    audioDecisions.Select(b => b.Item.Part).Distinct().Count() != audioDecisions.Count)
                 {
                     var part = 1;
-                    foreach (var d in decisionList.OrderBy(x => PadNumbers.Replace(x.Item.Path)))
+                    foreach (var d in audioDecisions.OrderBy(x => PadNumbers.Replace(x.Item.Path)))
                     {
                         d.Item.Part = part++;
                     }
@@ -184,8 +190,16 @@ namespace NzbDrone.Core.MediaFiles.BookImport
 
                 try
                 {
-                    //check if already imported
-                    if (importResults.Where(r => r.ImportDecision.Item.Book.Id == localTrack.Book.Id).Any(r => r.ImportDecision.Item.Part == localTrack.Part))
+                    // Check if already imported. A part number only collides within its own
+                    // media type, since a book can hold an ebook and an audiobook side by side
+                    // and both start at part 1. Two ebook formats in one batch do collide, which
+                    // is what keeps a book to a single ebook: the ordering above means the
+                    // better ranked one is the copy that lands. The path check still catches one
+                    // file offered twice.
+                    if (importResults.Any(r => PathEqualityComparer.Instance.Equals(r.ImportDecision.Item.Path, localTrack.Path)) ||
+                        importResults.Any(r => r.ImportDecision.Item.Book.Id == localTrack.Book.Id &&
+                                               r.ImportDecision.Item.Part == localTrack.Part &&
+                                               r.ImportDecision.Item.Quality?.Quality?.MediaType == localTrack.Quality?.Quality?.MediaType))
                     {
                         importResults.Add(new ImportResult(importDecision, "Book has already been imported"));
                         continue;

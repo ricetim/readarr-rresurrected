@@ -332,9 +332,20 @@ namespace NzbDrone.Integration.Test
             var needsUpdate = false;
             var profile = Profiles.Get(profileId);
 
-            if (profile.Cutoff != cutoff.Id)
+            var isAudiobook = cutoff.MediaType == NzbDrone.Core.Qualities.QualityMediaType.Audiobook;
+            var currentCutoff = isAudiobook ? profile.AudiobookCutoff : profile.EbookCutoff;
+
+            if (currentCutoff != cutoff.Id)
             {
-                profile.Cutoff = cutoff.Id;
+                if (isAudiobook)
+                {
+                    profile.AudiobookCutoff = cutoff.Id;
+                }
+                else
+                {
+                    profile.EbookCutoff = cutoff.Id;
+                }
+
                 needsUpdate = true;
             }
 

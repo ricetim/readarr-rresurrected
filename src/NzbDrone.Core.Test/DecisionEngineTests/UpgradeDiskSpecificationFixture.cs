@@ -43,7 +43,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
                          .With(c => c.QualityProfile = new QualityProfile
                          {
                              UpgradeAllowed = true,
-                             Cutoff = Quality.MP3.Id,
+                             AudiobookCutoff = Quality.MP3.Id,
                              Items = Qualities.QualityFixture.GetDefaultQualities(),
                              FormatItems = CustomFormatsTestHelpers.GetSampleFormatItems("None"),
                              MinFormatScore = 0,

@@ -32,7 +32,20 @@ function parseIndex(index) {
   ];
 }
 
-function createQualitiesSelector() {
+// Ebooks and audiobooks are ranked and cut off separately, so every list the editor
+// shows has to know which of the two an item belongs to. A group takes the media type
+// of the qualities inside it.
+export function getMediaType(item) {
+  if (item.quality) {
+    return item.quality.mediaType;
+  }
+
+  const first = _.find(item.items, (i) => i.quality);
+
+  return first ? first.quality.mediaType : 'ebook';
+}
+
+function createQualitiesSelector(mediaType) {
   return createSelector(
     createProviderSettingsSelector('qualityProfiles'),
     (qualityProfile) => {
@@ -41,8 +54,10 @@ function createQualitiesSelector() {
         return [];
       }
 
-      return _.reduceRight(items.value, (result, { allowed, id, name, quality }) => {
-        if (allowed) {
+      return _.reduceRight(items.value, (result, item) => {
+        const { allowed, id, name, quality } = item;
+
+        if (allowed && getMediaType(item) === mediaType) {
           if (id) {
             result.push({
               key: id,
@@ -95,12 +110,14 @@ function createFormatsSelector() {
 function createMapStateToProps() {
   return createSelector(
     createProviderSettingsSelector('qualityProfiles'),
-    createQualitiesSelector(),
+    createQualitiesSelector('ebook'),
+    createQualitiesSelector('audiobook'),
     createFormatsSelector(),
     createProfileInUseSelector('qualityProfileId'),
-    (qualityProfile, qualities, customFormats, isInUse) => {
+    (qualityProfile, ebookQualities, audiobookQualities, customFormats, isInUse) => {
       return {
-        qualities,
+        ebookQualities,
+        audiobookQualities,
         customFormats,
         ...qualityProfile,
         isInUse
@@ -149,7 +166,12 @@ class EditQualityProfileModalContentConnector extends Component {
   // Control
 
   ensureCutoff = (qualityProfile) => {
-    const cutoff = qualityProfile.cutoff.value;
+    this.ensureCutoffFor(qualityProfile, 'ebookCutoff', 'ebook');
+    this.ensureCutoffFor(qualityProfile, 'audiobookCutoff', 'audiobook');
+  };
+
+  ensureCutoffFor = (qualityProfile, name, mediaType) => {
+    const cutoff = qualityProfile[name].value;
 
     const cutoffItem = _.find(qualityProfile.items.value, (i) => {
       if (!cutoff) {
@@ -159,16 +181,21 @@ class EditQualityProfileModalContentConnector extends Component {
       return i.id === cutoff || (i.quality && i.quality.id === cutoff);
     });
 
-    // If the cutoff isn't allowed anymore or there isn't a cutoff set one
-    if (!cutoff || !cutoffItem || !cutoffItem.allowed) {
-      const firstAllowed = _.find(qualityProfile.items.value, { allowed: true });
-      let cutoffId = null;
+    // If the cutoff isn't allowed anymore or there isn't a cutoff set one. A profile that
+    // allows nothing of this media type keeps whatever it has, since the value is inert.
+    if (!cutoff || !cutoffItem || !cutoffItem.allowed || getMediaType(cutoffItem) !== mediaType) {
+      const firstAllowed = _.find(
+        qualityProfile.items.value,
+        (i) => i.allowed && getMediaType(i) === mediaType
+      );
 
-      if (firstAllowed) {
-        cutoffId = firstAllowed.quality ? firstAllowed.quality.id : firstAllowed.id;
+      if (!firstAllowed) {
+        return;
       }
 
-      this.props.setQualityProfileValue({ name: 'cutoff', value: cutoffId });
+      const cutoffId = firstAllowed.quality ? firstAllowed.quality.id : firstAllowed.id;
+
+      this.props.setQualityProfileValue({ name, value: cutoffId });
     }
   };
 

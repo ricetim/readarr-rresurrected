@@ -23,7 +23,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
             var fakeAuthor = Builder<Author>.CreateNew()
                 .With(c => c.QualityProfile = new QualityProfile
                 {
-                    Cutoff = Quality.EPUB.Id,
+                    EbookCutoff = Quality.EPUB.Id,
                     AllowedLanguages = new List<Language>()
                 })
                 .Build();

@@ -189,6 +189,33 @@ namespace NzbDrone.Core.Test.MediaFiles
         }
 
         [Test]
+        public void should_import_an_ebook_and_an_audiobook_for_the_same_book_side_by_side()
+        {
+            var template = _approvedDecisions.First().Item;
+            var all = new List<ImportDecision<LocalBook>>();
+
+            // Both start at part 1, which used to collide and drop one of them.
+            foreach (var (name, quality) in new[] { ("book.epub", Quality.EPUB), ("book.mp3", Quality.MP3) })
+            {
+                all.Add(new ImportDecision<LocalBook>(
+                            new LocalBook
+                            {
+                                Author = template.Author,
+                                Book = template.Book,
+                                Edition = template.Edition,
+                                Part = 1,
+                                Path = Path.Combine(template.Author.Path, name),
+                                Quality = new QualityModel(quality),
+                                FileTrackInfo = new ParsedTrackInfo()
+                            }));
+            }
+
+            var result = Subject.Import(all, false);
+
+            result.Where(i => i.Result == ImportResultType.Imported).Should().HaveCount(2);
+        }
+
+        [Test]
         public void should_move_new_downloads()
         {
             Subject.Import(new List<ImportDecision<LocalBook>> { _approvedDecisions.First() }, true);

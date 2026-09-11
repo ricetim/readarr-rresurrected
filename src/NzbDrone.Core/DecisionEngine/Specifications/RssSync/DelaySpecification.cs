@@ -78,8 +78,10 @@ namespace NzbDrone.Core.DecisionEngine.Specifications.RssSync
             // If quality meets or exceeds the best allowed quality in the profile accept it immediately
             if (delayProfile.BypassIfHighestQuality)
             {
-                var bestQualityInProfile = qualityProfile.LastAllowedQuality();
-                var isBestInProfile = qualityComparer.Compare(subject.ParsedBookInfo.Quality.Quality, bestQualityInProfile) >= 0;
+                var mediaType = subject.ParsedBookInfo.Quality.Quality.MediaType;
+                var bestQualityInProfile = qualityProfile.LastAllowedQuality(mediaType);
+                var isBestInProfile = bestQualityInProfile != null &&
+                                      qualityComparer.Compare(subject.ParsedBookInfo.Quality.Quality, bestQualityInProfile) >= 0;
 
                 if (isBestInProfile && isPreferredProtocol)
                 {

@@ -15,14 +15,15 @@ namespace NzbDrone.Core.Test.Profiles
             var profile = new QualityProfile
             {
                 Items = Qualities.QualityFixture.GetDefaultQualities(Quality.MP3, Quality.MP3, Quality.MP3),
-                Cutoff = Quality.MP3.Id,
+                AudiobookCutoff = Quality.MP3.Id,
                 Name = "TestProfile"
             };
 
             Subject.Insert(profile);
 
             StoredModel.Name.Should().Be(profile.Name);
-            StoredModel.Cutoff.Should().Be(profile.Cutoff);
+            StoredModel.EbookCutoff.Should().Be(profile.EbookCutoff);
+            StoredModel.AudiobookCutoff.Should().Be(profile.AudiobookCutoff);
 
             StoredModel.Items.Should().Equal(profile.Items, (a, b) => a.Quality == b.Quality && a.Allowed == b.Allowed);
         }

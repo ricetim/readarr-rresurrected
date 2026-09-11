@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NLog;
 using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Configuration;
@@ -26,6 +27,17 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
         {
             _configService = configService;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Ebooks and audiobooks are independent. Neither upgrades nor downgrades the other, so
+        /// a file of the other type must never block a grab or count towards its cutoff.
+        /// </summary>
+        private static bool IsComparable(QualityModel current, QualityModel candidate)
+        {
+            return current?.Quality == null
+                || candidate?.Quality == null
+                || current.Quality.MediaType == candidate.Quality.MediaType;
         }
 
         private ProfileComparisonResult IsQualityUpgradable(QualityProfile profile, QualityModel currentQuality, QualityModel newQuality = null)
@@ -64,6 +76,12 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
 
         public bool IsUpgradable(QualityProfile qualityProfile, QualityModel currentQualities, List<CustomFormat> currentCustomFormats, QualityModel newQuality, List<CustomFormat> newCustomFormats)
         {
+            if (!IsComparable(currentQualities, newQuality))
+            {
+                _logger.Debug("Existing item is a different media type, not comparable");
+                return true;
+            }
+
             var qualityUpgrade = IsQualityUpgradable(qualityProfile, currentQualities, newQuality);
 
             if (qualityUpgrade == ProfileComparisonResult.Upgrade)
@@ -96,8 +114,15 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
 
         public bool QualityCutoffNotMet(QualityProfile profile, QualityModel currentQuality, QualityModel newQuality = null)
         {
-            var cutoff = profile.UpgradeAllowed ? profile.Cutoff : profile.FirstAllowedQuality().Id;
-            var cutoffCompare = new QualityModelComparer(profile).Compare(currentQuality.Quality.Id, cutoff);
+            var cutoff = profile.EffectiveCutoff(currentQuality.Quality.MediaType);
+
+            if (cutoff == null)
+            {
+                // The profile allows nothing of this media type, so there is no bar to clear.
+                return false;
+            }
+
+            var cutoffCompare = new QualityModelComparer(profile).Compare(currentQuality.Quality.Id, cutoff.Value);
 
             if (cutoffCompare < 0)
             {
@@ -120,7 +145,17 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
 
         public bool CutoffNotMet(QualityProfile profile, List<QualityModel> currentQualities, List<CustomFormat> currentFormats, QualityModel newQuality = null)
         {
-            foreach (var quality in currentQualities)
+            // Only files of the candidate's own media type answer the question. An audiobook
+            // sitting at its cutoff says nothing about whether the ebook cutoff has been met.
+            var comparable = currentQualities.Where(q => IsComparable(q, newQuality)).ToList();
+
+            if (newQuality?.Quality != null && !comparable.Any())
+            {
+                _logger.Debug("No existing item of this media type, cut-off cannot have been met");
+                return true;
+            }
+
+            foreach (var quality in comparable)
             {
                 if (QualityCutoffNotMet(profile, quality, newQuality))
                 {
@@ -154,6 +189,13 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
 
         public bool IsUpgradeAllowed(QualityProfile qualityProfile, QualityModel currentQuality, List<CustomFormat> currentCustomFormats, QualityModel newQuality, List<CustomFormat> newCustomFormats)
         {
+            if (!IsComparable(currentQuality, newQuality))
+            {
+                // A first copy of the other media type is an acquisition, not an upgrade, so it
+                // stays allowed even when the profile forbids upgrades.
+                return true;
+            }
+
             var isQualityUpgrade = IsQualityUpgradable(qualityProfile, currentQuality, newQuality);
             var isCustomFormatUpgrade = qualityProfile.CalculateCustomFormatScore(newCustomFormats) > qualityProfile.CalculateCustomFormatScore(currentCustomFormats);
 

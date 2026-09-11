@@ -31,9 +31,24 @@ namespace NzbDrone.Core.Books
             //Get all items less than the cutoff
             foreach (var profile in profiles)
             {
-                var cutoff = profile.UpgradeAllowed ? profile.Cutoff : profile.FirstAllowedQuality().Id;
-                var cutoffIndex = profile.GetIndex(cutoff);
-                var belowCutoff = profile.Items.Take(cutoffIndex.Index).ToList();
+                // Each media type has its own cutoff, so gather what sits below each of them.
+                var belowCutoff = new List<QualityProfileQualityItem>();
+
+                foreach (var mediaType in new[] { QualityMediaType.Ebook, QualityMediaType.Audiobook })
+                {
+                    var cutoff = profile.EffectiveCutoff(mediaType);
+
+                    if (cutoff == null)
+                    {
+                        continue;
+                    }
+
+                    var cutoffIndex = profile.GetIndex(cutoff.Value);
+
+                    belowCutoff.AddRange(profile.Items
+                        .Take(cutoffIndex.Index)
+                        .Where(i => i.MediaType == mediaType));
+                }
 
                 if (belowCutoff.Any())
                 {

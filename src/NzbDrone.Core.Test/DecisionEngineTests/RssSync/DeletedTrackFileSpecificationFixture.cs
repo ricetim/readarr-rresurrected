@@ -56,7 +56,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
             };
 
             var fakeAuthor = Builder<Author>.CreateNew()
-                         .With(c => c.QualityProfile = new QualityProfile { Cutoff = Quality.FLAC.Id })
+                         .With(c => c.QualityProfile = new QualityProfile { AudiobookCutoff = Quality.FLAC.Id })
                          .With(c => c.Path = @"C:\Music\My.Author".AsOsAgnostic())
                          .Build();
 

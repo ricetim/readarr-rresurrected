@@ -51,7 +51,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
             _profile.Items.Add(new QualityProfileQualityItem { Allowed = true, Quality = Quality.AZW3 });
             _profile.Items.Add(new QualityProfileQualityItem { Allowed = true, Quality = Quality.MP3 });
 
-            _profile.Cutoff = Quality.AZW3.Id;
+            _profile.EbookCutoff = Quality.AZW3.Id;
 
             _remoteBook.ParsedBookInfo = new ParsedBookInfo();
             _remoteBook.Release = new ReleaseInfo();

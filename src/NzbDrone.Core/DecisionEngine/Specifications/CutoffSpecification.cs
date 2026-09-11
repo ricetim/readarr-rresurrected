@@ -47,7 +47,8 @@ namespace NzbDrone.Core.DecisionEngine.Specifications
                 {
                     _logger.Debug("Cutoff already met by existing files, rejecting.");
 
-                    var qualityCutoffIndex = qualityProfile.GetIndex(qualityProfile.Cutoff);
+                    var mediaType = subject.ParsedBookInfo.Quality.Quality.MediaType;
+                    var qualityCutoffIndex = qualityProfile.GetIndex(qualityProfile.GetCutoff(mediaType));
                     var qualityCutoff = qualityProfile.Items[qualityCutoffIndex.Index];
 
                     return Decision.Reject("Existing files meets cutoff: {0}", qualityCutoff);

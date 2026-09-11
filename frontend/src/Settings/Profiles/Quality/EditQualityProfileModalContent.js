@@ -105,7 +105,8 @@ class EditQualityProfileModalContent extends Component {
       error,
       isSaving,
       saveError,
-      qualities,
+      ebookQualities,
+      audiobookQualities,
       customFormats,
       item,
       isInUse,
@@ -121,7 +122,8 @@ class EditQualityProfileModalContent extends Component {
       id,
       name,
       upgradeAllowed,
-      cutoff,
+      ebookCutoff,
+      audiobookCutoff,
       minFormatScore,
       cutoffFormatScore,
       allowedLanguages,
@@ -188,18 +190,36 @@ class EditQualityProfileModalContent extends Component {
                       </FormGroup>
 
                       {
-                        upgradeAllowed.value &&
+                        upgradeAllowed.value && ebookQualities.length > 0 &&
                           <FormGroup size={sizes.EXTRA_SMALL}>
                             <FormLabel size={sizes.SMALL}>
-                              Upgrade Until
+                              Upgrade Ebooks Until
                             </FormLabel>
 
                             <FormInputGroup
                               type={inputTypes.SELECT}
-                              name="cutoff"
-                              {...cutoff}
-                              values={qualities}
-                              helpText={translate('CutoffHelpText')}
+                              name="ebookCutoff"
+                              {...ebookCutoff}
+                              values={ebookQualities}
+                              helpText={translate('EbookCutoffHelpText')}
+                              onChange={onCutoffChange}
+                            />
+                          </FormGroup>
+                      }
+
+                      {
+                        upgradeAllowed.value && audiobookQualities.length > 0 &&
+                          <FormGroup size={sizes.EXTRA_SMALL}>
+                            <FormLabel size={sizes.SMALL}>
+                              Upgrade Audiobooks Until
+                            </FormLabel>
+
+                            <FormInputGroup
+                              type={inputTypes.SELECT}
+                              name="audiobookCutoff"
+                              {...audiobookCutoff}
+                              values={audiobookQualities}
+                              helpText={translate('AudiobookCutoffHelpText')}
                               onChange={onCutoffChange}
                             />
                           </FormGroup>
@@ -322,7 +342,8 @@ EditQualityProfileModalContent.propTypes = {
   error: PropTypes.object,
   isSaving: PropTypes.bool.isRequired,
   saveError: PropTypes.object,
-  qualities: PropTypes.arrayOf(PropTypes.object).isRequired,
+  ebookQualities: PropTypes.arrayOf(PropTypes.object).isRequired,
+  audiobookQualities: PropTypes.arrayOf(PropTypes.object).isRequired,
   customFormats: PropTypes.arrayOf(PropTypes.object).isRequired,
   item: PropTypes.object.isRequired,
   isInUse: PropTypes.bool.isRequired,

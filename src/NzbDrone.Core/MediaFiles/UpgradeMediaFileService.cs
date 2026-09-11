@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 using NLog;
 using NzbDrone.Common.Disk;
@@ -5,6 +7,7 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Core.Books.Calibre;
 using NzbDrone.Core.MediaFiles.BookImport;
 using NzbDrone.Core.Parser.Model;
+using NzbDrone.Core.Qualities;
 using NzbDrone.Core.RootFolders;
 
 namespace NzbDrone.Core.MediaFiles
@@ -47,7 +50,14 @@ namespace NzbDrone.Core.MediaFiles
         public BookFileMoveResult UpgradeBookFile(BookFile bookFile, LocalBook localBook, bool copyOnly = false)
         {
             var moveFileResult = new BookFileMoveResult();
-            var existingFiles = localBook.Book.BookFiles.Value;
+            var allExistingFiles = localBook.Book.BookFiles.Value;
+
+            // Ebooks and audiobooks live side by side, and each keeps one copy. An incoming
+            // file replaces the existing files of its own media type and never touches the
+            // other, so importing an ebook no longer wipes out the audiobook.
+            var replacedFiles = allExistingFiles
+                .Where(f => IsSameMediaType(f.Quality, bookFile.Quality))
+                .ToList();
 
             var rootFolderPath = _diskProvider.GetParentFolder(localBook.Author.Path);
             var rootFolder = _rootFolderService.GetBestRootFolder(rootFolderPath);
@@ -56,12 +66,21 @@ namespace NzbDrone.Core.MediaFiles
             var settings = rootFolder.CalibreSettings;
 
             // If there are existing book files and the root folder is missing, throw, so the old file isn't left behind during the import process.
-            if (existingFiles.Any() && !_diskProvider.FolderExists(rootFolderPath))
+            if (allExistingFiles.Any() && !_diskProvider.FolderExists(rootFolderPath))
             {
                 throw new RootFolderNotFoundException($"Root folder '{rootFolderPath}' was not found.");
             }
 
-            foreach (var file in existingFiles)
+            // A calibre record holds every format of a book, so the new file joins whichever
+            // record already exists even when no file of its own format is being replaced.
+            var existingCalibreId = allExistingFiles.FirstOrDefault(f => f.CalibreId != 0)?.CalibreId ?? 0;
+
+            if (existingCalibreId != 0)
+            {
+                bookFile.CalibreId = existingCalibreId;
+            }
+
+            foreach (var file in replacedFiles)
             {
                 var bookFilePath = file.Path;
                 var subfolder = rootFolderPath.GetRelativePath(_diskProvider.GetParentFolder(bookFilePath));
@@ -78,10 +97,19 @@ namespace NzbDrone.Core.MediaFiles
                     }
                     else
                     {
+                        // Only drop the format being replaced. Removing every format would take
+                        // the audiobook down with the ebook, or the other way round.
+                        var replacedFormat = Path.GetExtension(bookFilePath).TrimStart('.').ToUpperInvariant();
                         var existing = _calibre.GetBook(file.CalibreId, settings);
-                        var existingFormats = existing.Formats.Keys;
-                        _logger.Debug($"Removing existing formats {existingFormats.ConcatToString()} from calibre");
-                        _calibre.RemoveFormats(file.CalibreId, existingFormats, settings);
+                        var existingFormats = existing.Formats.Keys
+                            .Where(f => f.Equals(replacedFormat, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
+                        if (existingFormats.Any())
+                        {
+                            _logger.Debug($"Removing existing formats {existingFormats.ConcatToString()} from calibre");
+                            _calibre.RemoveFormats(file.CalibreId, existingFormats, settings);
+                        }
                     }
                 }
 
@@ -115,6 +143,18 @@ namespace NzbDrone.Core.MediaFiles
             }
 
             return moveFileResult;
+        }
+
+        private static bool IsSameMediaType(QualityModel left, QualityModel right)
+        {
+            // A null quality can only be matched against another null one; treating unknown as
+            // a match for everything would bring back the cross-type deletion this guards.
+            if (left?.Quality == null || right?.Quality == null)
+            {
+                return left?.Quality == null && right?.Quality == null;
+            }
+
+            return left.Quality.MediaType == right.Quality.MediaType;
         }
     }
 }

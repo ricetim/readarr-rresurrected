@@ -38,7 +38,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
             var doubleBookList = new List<Book> { new Book { }, new Book { }, new Book { } };
 
             var fakeAuthor = Builder<Author>.CreateNew()
-                         .With(c => c.QualityProfile = new QualityProfile { Cutoff = Quality.FLAC.Id })
+                         .With(c => c.QualityProfile = new QualityProfile { AudiobookCutoff = Quality.FLAC.Id })
                          .Build();
 
             Mocker.GetMock<IMediaFileService>()

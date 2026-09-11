@@ -10,6 +10,14 @@ namespace NzbDrone.Core.Qualities
         public int Id { get; set; }
         public string Name { get; set; }
 
+        /// <summary>
+        /// Derived from the id rather than stored, so it is correct however the instance was
+        /// built. Quality persists as a bare int, so this never reaches the database.
+        /// </summary>
+        public QualityMediaType MediaType => AudiobookQualityIds.Contains(Id)
+            ? QualityMediaType.Audiobook
+            : QualityMediaType.Ebook;
+
         public Quality()
         {
         }
@@ -95,6 +103,14 @@ namespace NzbDrone.Core.Qualities
                 FLAC
             };
 
+            AudiobookQualityIds = new HashSet<int>
+            {
+                UnknownAudio.Id,
+                MP3.Id,
+                M4B.Id,
+                FLAC.Id
+            };
+
             AllLookup = new Quality[All.Select(v => v.Id).Max() + 1];
             foreach (var quality in All)
             {
@@ -116,6 +132,12 @@ namespace NzbDrone.Core.Qualities
         }
 
         public static readonly List<Quality> All;
+
+        /// <summary>
+        /// The audiobook formats. Everything else is an ebook format, so a quality added
+        /// in future defaults to the ebook side rather than silently joining the audiobooks.
+        /// </summary>
+        public static readonly HashSet<int> AudiobookQualityIds;
 
         public static readonly Quality[] AllLookup;
 

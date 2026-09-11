@@ -53,7 +53,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
                 .With(c => c.QualityProfile = new QualityProfile
                 {
                     UpgradeAllowed = true,
-                    Cutoff = Quality.MP3.Id,
+                    AudiobookCutoff = Quality.MP3.Id,
                     FormatItems = CustomFormatsTestHelpers.GetSampleFormatItems("None"),
                     MinFormatScore = 0,
                     Items = Qualities.QualityFixture.GetDefaultQualities()
@@ -176,7 +176,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
         [Test]
         public void should_not_be_upgradable_if_book_is_of_same_quality_as_existing()
         {
-            _fakeAuthor.QualityProfile = new QualityProfile { Cutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
+            _fakeAuthor.QualityProfile = new QualityProfile { AudiobookCutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
             _parseResultSingle.ParsedBookInfo.Quality = new QualityModel(Quality.MP3, new Revision(version: 1));
             _upgradableQuality = new QualityModel(Quality.MP3, new Revision(version: 1));
 
@@ -188,7 +188,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
         [Test]
         public void should_not_be_upgradable_if_cutoff_already_met()
         {
-            _fakeAuthor.QualityProfile = new QualityProfile { Cutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
+            _fakeAuthor.QualityProfile = new QualityProfile { AudiobookCutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
             _parseResultSingle.ParsedBookInfo.Quality = new QualityModel(Quality.MP3, new Revision(version: 1));
             _upgradableQuality = new QualityModel(Quality.MP3, new Revision(version: 1));
 
@@ -216,7 +216,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests.RssSync
         public void should_return_false_if_cutoff_already_met_and_cdh_is_disabled()
         {
             GivenCdhDisabled();
-            _fakeAuthor.QualityProfile = new QualityProfile { Cutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
+            _fakeAuthor.QualityProfile = new QualityProfile { AudiobookCutoff = Quality.MP3.Id, Items = Qualities.QualityFixture.GetDefaultQualities() };
             _parseResultSingle.ParsedBookInfo.Quality = new QualityModel(Quality.MP3, new Revision(version: 1));
             _upgradableQuality = new QualityModel(Quality.MP3, new Revision(version: 1));
 

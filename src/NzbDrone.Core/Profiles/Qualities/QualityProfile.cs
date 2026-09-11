@@ -17,16 +17,66 @@ namespace NzbDrone.Core.Profiles.Qualities
 
         public string Name { get; set; }
         public bool UpgradeAllowed { get; set; }
-        public int Cutoff { get; set; }
+        public int EbookCutoff { get; set; }
+        public int AudiobookCutoff { get; set; }
         public int MinFormatScore { get; set; }
         public int CutoffFormatScore { get; set; }
         public List<ProfileFormatItem> FormatItems { get; set; }
         public List<QualityProfileQualityItem> Items { get; set; }
         public List<Language> AllowedLanguages { get; set; }
 
-        public Quality FirstAllowedQuality()
+        /// <summary>
+        /// Ebooks and audiobooks are cut off independently, so every cutoff question has to
+        /// say which of the two it is asking about.
+        /// </summary>
+        public int GetCutoff(QualityMediaType mediaType)
         {
-            var firstAllowed = Items.First(q => q.Allowed);
+            return mediaType == QualityMediaType.Audiobook ? AudiobookCutoff : EbookCutoff;
+        }
+
+        public void SetCutoff(QualityMediaType mediaType, int cutoff)
+        {
+            if (mediaType == QualityMediaType.Audiobook)
+            {
+                AudiobookCutoff = cutoff;
+            }
+            else
+            {
+                EbookCutoff = cutoff;
+            }
+        }
+
+        /// <summary>
+        /// The cutoff actually in force. With upgrades turned off, the first allowed format
+        /// is as far as the profile will ever go.
+        /// </summary>
+        public int? EffectiveCutoff(QualityMediaType mediaType)
+        {
+            if (UpgradeAllowed)
+            {
+                return GetCutoff(mediaType);
+            }
+
+            return FirstAllowedQuality(mediaType)?.Id;
+        }
+
+        public List<QualityProfileQualityItem> ItemsFor(QualityMediaType mediaType)
+        {
+            return Items.Where(i => i.MediaType == mediaType).ToList();
+        }
+
+        /// <summary>
+        /// Null when nothing of this media type is allowed, which is how a profile says it
+        /// does not want that type at all.
+        /// </summary>
+        public Quality FirstAllowedQuality(QualityMediaType mediaType)
+        {
+            var firstAllowed = Items.FirstOrDefault(q => q.Allowed && q.MediaType == mediaType);
+
+            if (firstAllowed == null)
+            {
+                return null;
+            }
 
             if (firstAllowed.Quality != null)
             {
@@ -38,9 +88,14 @@ namespace NzbDrone.Core.Profiles.Qualities
             return firstAllowed.Items.First().Quality;
         }
 
-        public Quality LastAllowedQuality()
+        public Quality LastAllowedQuality(QualityMediaType mediaType)
         {
-            var lastAllowed = Items.Last(q => q.Allowed);
+            var lastAllowed = Items.LastOrDefault(q => q.Allowed && q.MediaType == mediaType);
+
+            if (lastAllowed == null)
+            {
+                return null;
+            }
 
             if (lastAllowed.Quality != null)
             {
@@ -50,6 +105,11 @@ namespace NzbDrone.Core.Profiles.Qualities
             // Returning any item from the group will work,
             // returning the last because it's the true last quality.
             return lastAllowed.Items.Last().Quality;
+        }
+
+        public bool AllowsAnything(QualityMediaType mediaType)
+        {
+            return Items.Any(q => q.Allowed && q.MediaType == mediaType);
         }
 
         public QualityIndex GetIndex(Quality quality, bool respectGroupOrder = false)

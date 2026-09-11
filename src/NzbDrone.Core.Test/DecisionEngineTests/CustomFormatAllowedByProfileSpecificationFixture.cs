@@ -35,7 +35,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
             var fakeArtist = Builder<Author>.CreateNew()
                 .With(c => c.QualityProfile = new QualityProfile
                 {
-                    Cutoff = Quality.FLAC.Id,
+                    AudiobookCutoff = Quality.FLAC.Id,
                     MinFormatScore = 1
                 })
                 .Build();

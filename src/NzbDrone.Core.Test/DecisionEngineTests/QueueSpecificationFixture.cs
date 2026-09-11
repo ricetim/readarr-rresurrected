@@ -126,7 +126,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         [Test]
         public void should_return_false_if_everything_is_the_same()
         {
-            _author.QualityProfile.Value.Cutoff = Quality.FLAC.Id;
+            _author.QualityProfile.Value.AudiobookCutoff = Quality.FLAC.Id;
 
             var remoteBook = Builder<RemoteBook>.CreateNew()
                 .With(r => r.Author = _author)
@@ -147,7 +147,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         [Test]
         public void should_return_true_when_quality_in_queue_is_lower()
         {
-            _author.QualityProfile.Value.Cutoff = Quality.MP3.Id;
+            _author.QualityProfile.Value.AudiobookCutoff = Quality.MP3.Id;
 
             var remoteBook = Builder<RemoteBook>.CreateNew()
                                                       .With(r => r.Author = _author)
@@ -231,7 +231,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         [Test]
         public void should_return_false_when_quality_in_queue_is_better()
         {
-            _author.QualityProfile.Value.Cutoff = Quality.FLAC.Id;
+            _author.QualityProfile.Value.AudiobookCutoff = Quality.FLAC.Id;
 
             var remoteBook = Builder<RemoteBook>.CreateNew()
                                                       .With(r => r.Author = _author)
@@ -332,7 +332,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         [Test]
         public void should_return_false_when_quality_is_better_and_upgrade_allowed_is_false_for_quality_profile()
         {
-            _author.QualityProfile.Value.Cutoff = Quality.FLAC.Id;
+            _author.QualityProfile.Value.AudiobookCutoff = Quality.FLAC.Id;
             _author.QualityProfile.Value.UpgradeAllowed = false;
 
             var remoteBook = Builder<RemoteBook>.CreateNew()
@@ -353,7 +353,7 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         [Test]
         public void should_return_true_if_everything_is_the_same_for_failed_pending()
         {
-            _author.QualityProfile.Value.Cutoff = Quality.FLAC.Id;
+            _author.QualityProfile.Value.AudiobookCutoff = Quality.FLAC.Id;
 
             var remoteBook = Builder<RemoteBook>.CreateNew()
                 .With(r => r.Author = _author)
@@ -375,7 +375,8 @@ namespace NzbDrone.Core.Test.DecisionEngineTests
         public void should_return_false_if_same_quality_non_proper_in_queue_and_download_propers_is_do_not_upgrade()
         {
             _remoteBook.ParsedBookInfo.Quality = new QualityModel(Quality.FLAC, new Revision(2));
-            _author.QualityProfile.Value.Cutoff = _remoteBook.ParsedBookInfo.Quality.Quality.Id;
+            var cutoffQuality = _remoteBook.ParsedBookInfo.Quality.Quality;
+            _author.QualityProfile.Value.SetCutoff(cutoffQuality.MediaType, cutoffQuality.Id);
 
             Mocker.GetMock<IConfigService>()
                 .Setup(s => s.DownloadPropersAndRepacks)

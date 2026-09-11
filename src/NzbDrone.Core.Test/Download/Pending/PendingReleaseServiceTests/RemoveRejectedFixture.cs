@@ -41,7 +41,7 @@ namespace NzbDrone.Core.Test.Download.Pending.PendingReleaseServiceTests
             _profile = new QualityProfile
             {
                 Name = "Test",
-                Cutoff = Quality.MP3.Id,
+                AudiobookCutoff = Quality.MP3.Id,
                 Items = new List<QualityProfileQualityItem>
                                    {
                                        new QualityProfileQualityItem { Allowed = true, Quality = Quality.MP3 },
