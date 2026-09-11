@@ -25,6 +25,16 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.1.1] - 2026-09-11
+
+### Fixed
+
+- **Hardlinks are now used when importing a folder by hand.** The setting was only consulted
+  when a download client was attached to the import, so importing a path from the interface
+  moved the files instead of linking them. For a torrent that was still seeding, that took its
+  data away. Importing with the explicit Move option still moves, since that is a direct
+  instruction to consume the source.
+
 ## [11.1.0] - 2026-09-11
 
 ### New
