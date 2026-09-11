@@ -17,7 +17,10 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: dessant/lock-threads@v4
+      # v4 validates github-token against a 100 character maximum, and GitHub's
+      # automatic token has since grown past that, so every run failed on input
+      # validation before doing any work. v6 raises the cap and runs on node24.
+      - uses: dessant/lock-threads@v6
         with:
           github-token: ${{ github.token }}
           issue-inactive-days: '90'
