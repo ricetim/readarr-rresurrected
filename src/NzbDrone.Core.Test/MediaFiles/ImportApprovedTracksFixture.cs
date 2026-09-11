@@ -316,6 +316,52 @@ namespace NzbDrone.Core.Test.MediaFiles
         }
 
         [Test]
+        public void should_copy_when_hardlinks_are_enabled_and_no_download_client_item_is_attached()
+        {
+            // A path scan started from the UI carries no download client item. Moving there
+            // consumed the source, which for a seeding torrent means destroying its data.
+            Mocker.GetMock<IConfigService>()
+                  .Setup(s => s.CopyUsingHardlinks)
+                  .Returns(true);
+
+            Subject.Import(new List<ImportDecision<LocalBook>> { _approvedDecisions.First() }, true);
+
+            Mocker.GetMock<IUpgradeMediaFiles>()
+                  .Verify(v => v.UpgradeBookFile(It.IsAny<BookFile>(), _approvedDecisions.First().Item, true), Times.Once());
+        }
+
+        [Test]
+        public void should_still_move_when_hardlinks_are_disabled_and_no_download_client_item_is_attached()
+        {
+            Mocker.GetMock<IConfigService>()
+                  .Setup(s => s.CopyUsingHardlinks)
+                  .Returns(false);
+
+            Subject.Import(new List<ImportDecision<LocalBook>> { _approvedDecisions.First() }, true);
+
+            Mocker.GetMock<IUpgradeMediaFiles>()
+                  .Verify(v => v.UpgradeBookFile(It.IsAny<BookFile>(), _approvedDecisions.First().Item, false), Times.Once());
+        }
+
+        [Test]
+        public void should_move_when_import_mode_is_move_even_with_hardlinks_enabled()
+        {
+            // An explicit Move is the user asking for the source to be consumed.
+            Mocker.GetMock<IConfigService>()
+                  .Setup(s => s.CopyUsingHardlinks)
+                  .Returns(true);
+
+            Subject.Import(
+                new List<ImportDecision<LocalBook>> { _approvedDecisions.First() },
+                true,
+                null,
+                ImportMode.Move);
+
+            Mocker.GetMock<IUpgradeMediaFiles>()
+                  .Verify(v => v.UpgradeBookFile(It.IsAny<BookFile>(), _approvedDecisions.First().Item, false), Times.Once());
+        }
+
+        [Test]
         public void should_use_override_importmode()
         {
             Subject.Import(new List<ImportDecision<LocalBook>> { _approvedDecisions.First() }, true, new DownloadClientItem { Title = "Alien.Ant.Farm-Truant", CanMoveFiles = false, DownloadClientInfo = _clientInfo }, ImportMode.Move);

@@ -244,7 +244,14 @@ namespace NzbDrone.Core.MediaFiles.BookImport
                     {
                         default:
                         case ImportMode.Auto:
-                            copyOnly = downloadClientItem != null && (!downloadClientItem.CanMoveFiles || _configService.CopyUsingHardlinks);
+                            // Hardlinking is a standing instruction not to consume the source,
+                            // and it holds whether or not a download client item came with the
+                            // import. A path scan started from the UI carries no item, and
+                            // gating on one moved the files out from under a seeding torrent.
+                            // Files already inside a root folder never reach here, so the source
+                            // is always somewhere outside the library.
+                            copyOnly = _configService.CopyUsingHardlinks ||
+                                       (downloadClientItem != null && !downloadClientItem.CanMoveFiles);
                             break;
                         case ImportMode.Move:
                             copyOnly = false;
