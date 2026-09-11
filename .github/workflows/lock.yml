@@ -8,6 +8,14 @@ on:
 jobs:
   lock:
     runs-on: ubuntu-latest
+
+    # The repository default for the automatic token is read-only, and locking a
+    # thread is a write. Without this the action fails before it logs anything.
+    # Discussions are disabled on this repo, so they need no grant.
+    permissions:
+      issues: write
+      pull-requests: write
+
     steps:
       - uses: dessant/lock-threads@v4
         with:
