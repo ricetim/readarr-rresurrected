@@ -86,9 +86,10 @@ docker run -d \
 
 | Tag | Description |
 |-----|-------------|
-| `latest` | Most recent build from `develop`. Moves with every push. |
-| `11.0.0` | A specific release. Pin this if you want to control when you upgrade. |
-| `11.0` | Latest patch within a minor release. |
+| `latest` | The most recent release. This is the one you want. |
+| `11.1.2` | A specific release. Pin this if you want to control when you upgrade. |
+| `11.1` | Latest patch within a minor release. |
+| `develop` | Built from every push to `develop`, ahead of the last release and not release tested. |
 
 ---
 

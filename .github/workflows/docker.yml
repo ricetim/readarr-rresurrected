@@ -25,9 +25,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # A tagged build is a release and gets version tags. An untagged develop push keeps
-      # moving :latest, with the run number as the fourth version field so successive dev
+      # A tagged build is a release and owns :latest. An untagged develop push publishes
+      # :develop instead, with the run number as the fourth version field so successive dev
       # builds are distinguishable and always sort above the release they follow.
+      # Cutting a release pushes the branch and the tag, so both runs start within seconds of
+      # each other. While they both wrote :latest, whichever finished last won it, and the
+      # develop build usually did — leaving :latest on a dev-numbered image.
       - name: Derive version and tags
         id: meta
         run: |
@@ -48,7 +51,7 @@ jobs:
           else
             VERSION="${BASE}"
             ASSEMBLY="${BASE}.${GITHUB_RUN_NUMBER}"
-            TAGS="ricetim/readarr-rresurrected:latest"
+            TAGS="ricetim/readarr-rresurrected:develop"
           fi
 
           echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
