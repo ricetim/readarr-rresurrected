@@ -126,6 +126,69 @@ namespace NzbDrone.Core.Test.IndexerTests.MyAnonamouseTests
             text.Should().Contain("Name of the Wind");
         }
 
+        private string SearchTextFor(string author, string bookTitle)
+        {
+            _bookSearchCriteria.Author = new Author { Name = author };
+            _bookSearchCriteria.BookTitle = bookTitle;
+            _bookSearchCriteria.BookIsbn = null;
+
+            var results = Subject.GetSearchRequests(_bookSearchCriteria);
+            var request = results.GetAllTiers().First().First().HttpRequest;
+
+            return GetRequestBody(request)["tor"]["text"].Value<string>();
+        }
+
+        [TestCase("Whose Body?", "Dorothy Sayers Whose Body")]
+        [TestCase("Hard-Boiled Wonderland", "Haruki Murakami Hard Boiled Wonderland")]
+        [TestCase("Who Goes There!", "Dorothy Sayers Who Goes There")]
+        [TestCase("Crime & Punishment", "Dorothy Sayers Crime Punishment")]
+        public void book_search_text_should_drop_characters_mam_reads_as_query_operators(string title, string expected)
+        {
+            // MAM parses the text as a boolean query, so title punctuation is read as an
+            // operator: '!' errors outright, '?' and '-' silently match nothing. Verified
+            // against the live search, which returned no results for "Whose Body?" despite
+            // holding a release titled exactly that.
+            var author = title.StartsWith("Hard-Boiled") ? "Haruki Murakami" : "Dorothy Sayers";
+
+            SearchTextFor(author, title).Should().Be(expected);
+        }
+
+        [Test]
+        public void book_search_text_should_drop_the_subtitle_before_searching()
+        {
+            // SplitBookTitle removes anything after a colon, since release names rarely carry
+            // the subtitle. Colons themselves are safe for MAM's parser; this is a separate
+            // narrowing step that happens first.
+            SearchTextFor("Dorothy Sayers", "Gaudy Night: A Mystery")
+                .Should().Be("Dorothy Sayers Gaudy Night");
+        }
+
+        [Test]
+        public void book_search_text_should_keep_apostrophes()
+        {
+            SearchTextFor("Dorothy Sayers", "Busman's Honeymoon")
+                .Should().Be("Dorothy Sayers Busman's Honeymoon");
+        }
+
+        [Test]
+        public void book_search_text_should_space_out_initials()
+        {
+            // MAM stores initialed names with spaces, so "C.J." must not stay glued together.
+            SearchTextFor("C.J. Cherryh", "Downbelow Station")
+                .Should().Be("C J Cherryh Downbelow Station");
+        }
+
+        [Test]
+        public void author_search_text_should_drop_query_operators()
+        {
+            _authorSearchCriteria.Author = new Author { Name = "Jean-Paul Sartre" };
+
+            var results = Subject.GetSearchRequests(_authorSearchCriteria);
+            var body = GetRequestBody(results.GetAllTiers().First().First().HttpRequest);
+
+            body["tor"]["text"].Value<string>().Should().Be("Jean Paul Sartre");
+        }
+
         [Test]
         public void book_search_with_isbn_should_produce_two_requests()
         {

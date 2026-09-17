@@ -185,6 +185,11 @@ Two hard-won gotchas when writing parsers for these trackers:
 - **Don't reuse `BookQuery.GetQueryTitle()` for JSON bodies.** It URL-encodes spaces to `+` for
   Newznab query params. For JSON POST bodies use the raw value, e.g.
   `BookTitle.SplitBookTitle(Author.Name).Item1`.
+- **But strip punctuation yourself when you bypass it.** `GetQueryTitle()` also removes every
+  non-word character, and skipping it means raw title punctuation reaches the tracker. MAM parses
+  its `text` field as a boolean query, where `!` is NOT and errors outright, and `?` and `-`
+  silently match nothing — "Whose Body?" found no releases despite one being titled exactly that.
+  Keep letters, digits, whitespace and apostrophes; replace the rest with a space.
 
 Tests for indexers live in `src/NzbDrone.Core.Test/IndexerTests/<Name>Tests/`, with JSON/HTML
 fixtures under `src/NzbDrone.Core.Test/Files/Indexers/<Name>/`.

@@ -13,7 +13,13 @@ namespace NzbDrone.Core.Indexers.MyAnonamouse
     {
         private const string SearchUrl = "https://www.myanonamouse.net/tor/js/loadSearchJSONbasic.php";
 
-        // MAM stores initialed names with spaces ("C J Cherryh", not "C.J. Cherryh"), so periods in the search text never match.
+        // MAM's search takes a boolean query rather than plain text, so ordinary title
+        // punctuation is read as an operator. '!' is NOT and produces an outright error,
+        // while '?' and '-' silently match nothing: "Whose Body?" returned no releases even
+        // though one is titled exactly that. Periods matter for a different reason, since MAM
+        // stores initialed names with spaces ("C J Cherryh", not "C.J. Cherryh").
+        // Keep letters, digits, whitespace and apostrophes; everything else becomes a space.
+        private static readonly Regex NonSearchable = new Regex(@"[^\w\s'’`]", RegexOptions.Compiled);
         private static readonly Regex MultiSpace = new Regex(@"\s+", RegexOptions.Compiled);
 
         public MyAnonamouseSettings Settings { get; set; }
@@ -156,7 +162,7 @@ namespace NzbDrone.Core.Indexers.MyAnonamouse
 
         private static string NormalizeSearchText(string text)
         {
-            return MultiSpace.Replace(text.Replace('.', ' '), " ").Trim();
+            return MultiSpace.Replace(NonSearchable.Replace(text, " "), " ").Trim();
         }
 
         private static string MapSearchType(int searchType)
