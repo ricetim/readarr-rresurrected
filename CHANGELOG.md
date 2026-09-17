@@ -25,6 +25,17 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.1.2] - 2026-09-17
+
+### Fixed
+
+- **Searching MyAnonamouse for a title containing punctuation now returns results.** The tracker
+  reads its search box as a boolean query rather than as plain text, so a question mark or a
+  hyphen in a title quietly matched nothing and an exclamation mark failed outright. Searching
+  for "Whose Body?" found no releases at all, even though the tracker holds one titled exactly
+  that. Punctuation is now removed from the search text before the request is sent, keeping
+  apostrophes, which match either way.
+
 ## [11.1.1] - 2026-09-11
 
 ### Fixed
