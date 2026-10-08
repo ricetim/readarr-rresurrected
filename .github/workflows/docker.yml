@@ -88,6 +88,10 @@ jobs:
             echo "Building ${ASSEMBLY} from ${GITHUB_REF_NAME} (build only, nothing will be pushed)"
           fi
 
+      # No build cache, deliberately. Measured on 2026-10-08, a warm cache saved about 40s of
+      # build time but cost 2m49s to export to a registry and 4.5-11 min to export to the
+      # GitHub Actions cache, so cached runs took 5-13 min against under 3 min without.
+      # The .NET layers rebuild on every commit anyway, since COPY src/ changes.
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
@@ -99,8 +103,6 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
             ASSEMBLY_VERSION=${{ steps.meta.outputs.assembly }}
             BRANCH=develop
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Update Docker Hub README
         if: steps.meta.outputs.push == 'true'
