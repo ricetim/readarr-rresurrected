@@ -36,7 +36,7 @@ The backend is split into these key assemblies (all loaded at startup via `Boots
 
 **Dependency injection:** DryIoc. Services are auto-discovered by convention (interfaces `IFoo` implemented by `Foo` in the same assembly).
 
-**Data access:** Dapper ORM against SQLite (default) or PostgreSQL. Repositories inherit from `BasicRepository<TModel>`. Database migrations are sequential numbered files in `src/NzbDrone.Core/Datastore/Migration/` (currently through `043_quality_profile_allowed_languages.cs`).
+**Data access:** Dapper ORM against SQLite (default) or PostgreSQL. Repositories inherit from `BasicRepository<TModel>`. Database migrations are sequential numbered files in `src/NzbDrone.Core/Datastore/Migration/` (currently through `045_add_missing_kca_column.cs`).
 
 **Command/event bus:** `NzbDrone.Core.Messaging` — commands implement `IExecute<TCommand>`, events implement `IHandle<TEvent>`. This is the primary way services communicate.
 
@@ -49,9 +49,13 @@ It fetches from Goodreads' GraphQL and XML APIs (the query shapes are replicated
 - Entry point `bookinfo/app.py`; Goodreads client in `goodreads.py`; Google Books in `google_books.py`; edition classification/dedup in `models.py`.
 - Listens on port **28202**.
 - Routes: `/author/{id}`, `/author/changed`, `/work/{id}`, `/book/{edition_id}`, `/book/bulk` (GET + POST), `/series/{id}`, `/search`, `/recommended`, and `DELETE /cache/author/{id}`.
-- Long author fetches are backgrounded; on completion the service calls back into Readarr's
-  `POST /api/v1/command` with `RefreshAuthor` (needs `READARR_URL` + `READARR_API_KEY`).
-- Env vars: `GOOGLE_BOOKS_API_KEY`, `BOOKINFO_LOG_DIR`, `BOOKINFO_LOG_KEEP`, `BOOKINFO_GR_RATE` (Goodreads req/sec), `BOOKINFO_BATCH_SIZE`, `READARR_URL`, `READARR_API_KEY`.
+- Long author fetches are paginated in the background. `/author/{id}` returns the works fetched
+  so far with `"Partial": true`, and `RefreshAuthorService` polls it every few seconds until the
+  payload is complete, giving up after 300s without new works. While data is partial, refreshes
+  must not delete anything: an entity missing from a partial payload may simply not have arrived
+  yet. `RefreshBookService` never deletes books, and `RefreshSeriesService` skips deletions while
+  `Author.IsPartial` is set.
+- Env vars: `GOOGLE_BOOKS_API_KEY`, `BOOKINFO_LOG_DIR`, `BOOKINFO_LOG_KEEP`, `BOOKINFO_GR_RATE` (Goodreads req/sec), `BOOKINFO_BATCH_SIZE`.
 
 **How the C# side reaches it:** `src/NzbDrone.Core/MetadataSource/MetadataRequestBuilder.cs` reads
 the `READARR_METADATA_URL` env var, defaulting to `http://localhost:28202/{route}`. There is **no
@@ -161,7 +165,12 @@ docker compose up -d --build
 
 **Adding a command:** Create a `Command` subclass and an `IExecute<YourCommand>` implementation in `NzbDrone.Core`. DI picks it up automatically.
 
-**Database schema changes:** Add a new migration file in `src/NzbDrone.Core/Datastore/Migration/` following the sequential numbering pattern (e.g., `044_your_change.cs`).
+**Database schema changes:** Add a new migration file in `src/NzbDrone.Core/Datastore/Migration/` following the sequential numbering pattern (e.g., `046_your_change.cs`). Every mapped model
+property needs a column: `SchemaVerifierFixture` migrates a fresh database and fails if any are
+missing, and the same check runs at startup (`SchemaVerifier`, surfaced by `DatabaseSchemaCheck`).
+Other Readarr forks reuse migration numbers for different changes, so a database brought over
+from one can be marked as migrated while missing columns; never assume `VersionInfo` reflects
+the schema.
 
 **LazyLoaded properties:** Many model properties use `LazyLoaded<T>` — these are populated on-demand by the repository layer and should not be assumed to be populated unless explicitly queried.
 
