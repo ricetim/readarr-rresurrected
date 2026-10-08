@@ -8,6 +8,15 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# One build per ref at a time. Two pushes to develop in quick succession used to start two
+# builds side by side, and whichever finished last took :develop, sometimes the older commit.
+# Now a newer branch build cancels the older one; its tag only moves when the final manifest is
+# pushed, so a cancelled build leaves :develop where it was. Each release tag is its own ref and
+# is never cancelled.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+
 jobs:
   docker:
     runs-on: ubuntu-latest
