@@ -23,6 +23,12 @@ All notable changes to the fork are recorded here.
 
 ### New
 
+### Fixed
+
+## [11.2.0] - 2026-10-08
+
+### New
+
 - **Readarr now checks its database at startup for missing columns.** A database upgraded by a
   different Readarr fork can say it is fully up to date while missing parts that this fork's
   pages and searches rely on, and until now that only showed up later as confusing errors.
