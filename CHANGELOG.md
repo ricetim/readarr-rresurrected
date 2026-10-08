@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.2.2] - 2026-10-08
+
+### Fixed
+
 - **Refreshing a large author no longer churns or stalls.** While a big author's books were
   still loading, each update listed only the first page's series, so Readarr removed and re-added
   series as the pages arrived. Every update now carries all the series seen so far. Without a
