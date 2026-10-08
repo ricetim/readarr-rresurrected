@@ -25,6 +25,12 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Authors no longer fail to load because of one bad publication date.** If any edition
+  carried a malformed date from Goodreads, such as one landing in the year 20221, the whole
+  author failed to load. That date is now ignored and the rest of the author loads normally.
+  Fixed by [@ZiIlaGit104](https://github.com/ZiIlaGit104) in
+  [#8](https://github.com/ricetim/readarr-rresurrected/pull/8).
+
 ## [11.2.1] - 2026-10-08
 
 ### New
