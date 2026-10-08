@@ -31,6 +31,8 @@ jobs:
       # Cutting a release pushes the branch and the tag, so both runs start within seconds of
       # each other. While they both wrote :latest, whichever finished last won it, and the
       # develop build usually did — leaving :latest on a dev-numbered image.
+      # Any other branch (a manual run to test a PR, say) builds but publishes nothing. It
+      # would otherwise take the develop path below and overwrite :develop with unmerged code.
       - name: Derive version and tags
         id: meta
         run: |
@@ -54,16 +56,27 @@ jobs:
             TAGS="ricetim/readarr-rresurrected:develop"
           fi
 
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] || [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            PUSH=true
+          else
+            PUSH=false
+          fi
+
           echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
           echo "assembly=${ASSEMBLY}" >> "$GITHUB_OUTPUT"
           echo "tags=${TAGS}"         >> "$GITHUB_OUTPUT"
-          echo "Building ${ASSEMBLY} -> ${TAGS}"
+          echo "push=${PUSH}"         >> "$GITHUB_OUTPUT"
+          if [ "$PUSH" = "true" ]; then
+            echo "Building ${ASSEMBLY} -> ${TAGS}"
+          else
+            echo "Building ${ASSEMBLY} from ${GITHUB_REF_NAME} (build only, nothing will be pushed)"
+          fi
 
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ steps.meta.outputs.push == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
@@ -73,6 +86,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Update Docker Hub README
+        if: steps.meta.outputs.push == 'true'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
