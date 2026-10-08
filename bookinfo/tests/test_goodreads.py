@@ -874,3 +874,35 @@ class TestApiKeySelfHealing:
 
         assert exc.value.response.status_code == 403
         assert not discovery.called, "a WAF block is not a key rotation"
+
+
+from goodreads import _parse_date
+
+
+class TestParseDate:
+    @pytest.mark.parametrize(
+        "publication_time, expected_raw",
+        [
+            (1396310400000, "2014-04-01"),               # milliseconds, as Goodreads sends them
+            (1396310400, "2014-04-01"),                  # seconds
+            (-2208988800000, "1900-01-01"),              # before 1970
+            ("2014-04-01T07:00:00.000Z", "2014-04-01"),  # ISO string
+        ],
+    )
+    def test_valid_dates(self, publication_time, expected_raw):
+        assert _parse_date(publication_time) == (f"{expected_raw}T07:00:00Z", expected_raw)
+
+    @pytest.mark.parametrize(
+        "publication_time",
+        [
+            575958988800000,  # lands in year 20221 and used to raise, failing the whole author
+            7258118400000,    # 2200-01-01: representable, but not a real publication date
+            "2014",           # used to become the invalid date "2014T07:00:00Z"
+            "April 1, 2014",
+            None,
+            0,
+            "",
+        ],
+    )
+    def test_unusable_dates_return_none(self, publication_time):
+        assert _parse_date(publication_time) == (None, None)

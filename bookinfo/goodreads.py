@@ -182,14 +182,37 @@ def _parse_date(publication_time) -> tuple[Optional[str], Optional[str]]:
     (integer milliseconds or seconds as a float/int).
     """
     import datetime
+
     if not publication_time:
         return None, None
+
+    raw: Optional[str] = None
+
     if isinstance(publication_time, (int, float)):
-        # Unix timestamp; Goodreads uses milliseconds (abs value > 1e10)
-        ts = publication_time / 1000.0 if abs(publication_time) > 1e10 else float(publication_time)
-        raw = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        try:
+            # Unix timestamp; Goodreads uses milliseconds (abs value > 1e10)
+            ts = publication_time / 1000.0 if abs(publication_time) > 1e10 else float(publication_time)
+
+            # Python 3.12+ tz-aware UTC timestamp conversion
+            dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+
+            # Guard against out-of-range or corrupted years (e.g., 20221)
+            if 1 <= dt.year <= 2100:
+                raw = dt.strftime("%Y-%m-%d")
+        except (ValueError, OverflowError, OSError):
+            return None, None
     else:
-        raw = str(publication_time)[:10]  # "2014-04-01"
+        # String input parsing
+        s_val = str(publication_time).strip()
+        if len(s_val) >= 10 and s_val[:4].isdigit():
+            # Basic sanity check that string starts with a 4-digit year
+            year = int(s_val[:4])
+            if 1 <= year <= 2100:
+                raw = s_val[:10]
+
+    if not raw:
+        return None, None
+
     return f"{raw}T07:00:00Z", raw
 
 
