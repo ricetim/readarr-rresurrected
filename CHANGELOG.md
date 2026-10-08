@@ -25,6 +25,16 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Refreshing a large author no longer churns or stalls.** While a big author's books were
+  still loading, each update listed only the first page's series, so Readarr removed and re-added
+  series as the pages arrived. Every update now carries all the series seen so far. Without a
+  Google Books API key, the metadata service also spent a long stretch on lookups that couldn't
+  succeed, long enough for Readarr to give up on the refresh; those lookups are now skipped when
+  no key is set. The unused `READARR_URL` and `READARR_API_KEY` settings are gone too; they have
+  done nothing since the metadata service stopped calling back into Readarr. Fixed by
+  [@bknoodles](https://github.com/bknoodles) in
+  [#4](https://github.com/ricetim/readarr-rresurrected/pull/4).
+
 - **Authors no longer fail to load because of one bad publication date.** If any edition
   carried a malformed date from Goodreads, such as one landing in the year 20221, the whole
   author failed to load. That date is now ignored and the rest of the author loads normally.
