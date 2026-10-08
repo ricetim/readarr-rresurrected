@@ -139,6 +139,10 @@ namespace NzbDrone.Core.Books
             local.UseMetadataFrom(remote);
             local.Metadata = remote.Metadata;
             local.Series = remote.Series.Value;
+
+            // Not persisted. The series refresh receives this local author, so it needs the flag
+            // to know the series list it has been handed may be incomplete.
+            local.IsPartial = remote.IsPartial;
             local.LastInfoSync = DateTime.UtcNow;
 
             try

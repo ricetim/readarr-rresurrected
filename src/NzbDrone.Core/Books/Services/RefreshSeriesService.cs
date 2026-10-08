@@ -34,11 +34,20 @@ namespace NzbDrone.Core.Books
             _logger = logger;
         }
 
+        // bookinfo returns an author's works in pages, and each partial payload lists only the
+        // series of the works fetched so far. Treating that list as complete deleted most of an
+        // author's series on every partial poll, and a refresh that gave up before the last page
+        // never restored them. While the data is partial, nothing is deleted: a series or a link
+        // missing from it may simply not have arrived yet. RefreshBookService already treats
+        // books the same way.
         protected override RemoteData GetRemoteData(Series local, List<Series> remote, Author data)
         {
+            var entity = remote.SingleOrDefault(x => x.ForeignSeriesId == local.ForeignSeriesId);
+
             return new RemoteData
             {
-                Entity = remote.SingleOrDefault(x => x.ForeignSeriesId == local.ForeignSeriesId)
+                Entity = entity,
+                SkipSilently = entity == null && data.IsPartial
             };
         }
 
@@ -124,7 +133,10 @@ namespace NzbDrone.Core.Books
 
         protected override bool RefreshChildren(SortedChildren localChildren, List<SeriesBookLink> remoteChildren, Author remoteData, bool forceChildRefresh, bool forceUpdateFileTags, DateTime? lastUpdate)
         {
-            return _refreshLinkService.RefreshSeriesBookLinkInfo(localChildren.Added, localChildren.Updated, localChildren.Merged, localChildren.Deleted, localChildren.UpToDate, remoteChildren, forceUpdateFileTags);
+            // See GetRemoteData: a link missing from partial data may not have arrived yet.
+            var deleted = remoteData.IsPartial ? new List<SeriesBookLink>() : localChildren.Deleted;
+
+            return _refreshLinkService.RefreshSeriesBookLinkInfo(localChildren.Added, localChildren.Updated, localChildren.Merged, deleted, localChildren.UpToDate, remoteChildren, forceUpdateFileTags);
         }
 
         public bool RefreshSeriesInfo(int authorMetadataId, List<Series> remoteSeries, Author remoteData, bool forceBookRefresh, bool forceUpdateFileTags, DateTime? lastUpdate)

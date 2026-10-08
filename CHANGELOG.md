@@ -32,6 +32,16 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Refreshing an author no longer deletes most of its series.** Readarr fetches a large
+  author's books in pages, and treated each page as the complete list, deleting any series it
+  didn't mention yet. Series normally came back once the last page arrived, but a refresh that
+  stopped early (Readarr gives up after five minutes without progress) left them deleted, and
+  libraries lost series day by day. Series and their book links are now only removed once the
+  full list has arrived, the same rule books already followed. Lost series return on the next
+  complete refresh. Reported with measurements in
+  [#4](https://github.com/ricetim/readarr-rresurrected/pull/4) by
+  [@bknoodles](https://github.com/bknoodles).
+
 ## [11.1.4] - 2026-10-08
 
 ### Fixed
