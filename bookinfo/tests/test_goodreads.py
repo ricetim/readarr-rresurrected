@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import time
+from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
-
-from unittest.mock import patch
 
 from goodreads import GRAPHQL_KEY, GRAPHQL_URL, GoodreadsClient, RateLimiter
 
@@ -574,7 +573,7 @@ class TestCompleteAuthorBackground:
         assert isinstance(result, dict)
 
     @patch("goodreads.google_books.has_api_key", return_value=True)
-    async def test_runs_google_supplement_for_works_without_ebook(self):
+    async def test_runs_google_supplement_for_works_without_ebook(self, _has_api_key):
         """Works with no ebook editions should trigger google_supplement_fn."""
         supplement_calls = []
 
@@ -608,7 +607,8 @@ class TestCompleteAuthorBackground:
         assert len(supplement_calls) == 1
         assert supplement_calls[0]["title"] == "No Ebook Here"
 
-    async def test_google_supplement_searches_by_short_title(self):
+    @patch("goodreads.google_books.has_api_key", return_value=True)
+    async def test_google_supplement_searches_by_short_title(self, _has_api_key):
         """A subtitle in the intitle: query would only narrow the Google Books match."""
         supplement_calls = []
 
@@ -644,7 +644,7 @@ class TestCompleteAuthorBackground:
         assert isinstance(result, dict)
 
     @patch("goodreads.google_books.has_api_key", return_value=False)
-    async def test_supplement_skipped_when_no_api_key(self):
+    async def test_supplement_skipped_when_no_api_key(self, _has_api_key):
         """Google Books supplement should be skipped when GOOGLE_BOOKS_API_KEY is unset."""
         supplement_calls = []
 

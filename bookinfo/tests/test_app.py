@@ -272,6 +272,7 @@ async def test_on_progress_series_covers_all_pages(app_and_client):
     import app as app_module
 
     client, mock_gr = app_and_client
+    intermediate = []
 
     async def mock_complete(**kwargs):
         on_progress = kwargs.get("on_progress")
@@ -291,6 +292,8 @@ async def test_on_progress_series_covers_all_pages(app_and_client):
                 },
             }
             on_progress(works_by_id, total_count=2)
+            # Capture what Readarr would read now; the completed payload replaces it below.
+            intermediate.append(app_module._pending_complete[3389][0])
         return kwargs.get("partial_data", {})
 
     mock_gr.complete_author_background = AsyncMock(side_effect=mock_complete)
@@ -298,9 +301,9 @@ async def test_on_progress_series_covers_all_pages(app_and_client):
     response = await client.get("/author/3389")
     assert response.status_code == 200
 
-    pending = app_module._pending_complete.get(3389)
-    assert pending is not None
-    data, _ = pending
+    assert len(intermediate) == 1
+    data = intermediate[0]
+    assert data["Partial"] is True
     series_ids = {s["ForeignId"] for s in data.get("Series", [])}
     assert 1001 in series_ids
     assert 1002 in series_ids

@@ -915,6 +915,5 @@ class GoodreadsClient:
                     if synthetic:
                         work["Books"].append(synthetic)
 
-
         updated = {**partial_data, "Works": list(works_by_id.values()), "Series": _build_series(works_by_id)}
         return updated
