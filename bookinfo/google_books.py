@@ -13,6 +13,15 @@ _VOLUMES_URL = "https://www.googleapis.com/books/v1/volumes"
 _API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "")
 
 
+def has_api_key() -> bool:
+    """True when GOOGLE_BOOKS_API_KEY is configured.
+
+    Without a key the volumes endpoint rejects every request, so callers can use
+    this to skip work that cannot succeed.
+    """
+    return bool(_API_KEY)
+
+
 def _synthetic_foreign_id(work_id: int) -> int:
     """Return a stable positive int for a synthetic Google Books edition.
 

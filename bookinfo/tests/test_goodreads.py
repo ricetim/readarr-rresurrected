@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -571,7 +572,8 @@ class TestCompleteAuthorBackground:
         assert result is not None
         assert isinstance(result, dict)
 
-    async def test_runs_google_supplement_for_works_without_ebook(self):
+    @patch("goodreads.google_books.has_api_key", return_value=True)
+    async def test_runs_google_supplement_for_works_without_ebook(self, _has_api_key):
         """Works with no ebook editions should trigger google_supplement_fn."""
         supplement_calls = []
 
@@ -605,7 +607,8 @@ class TestCompleteAuthorBackground:
         assert len(supplement_calls) == 1
         assert supplement_calls[0]["title"] == "No Ebook Here"
 
-    async def test_google_supplement_searches_by_short_title(self):
+    @patch("goodreads.google_books.has_api_key", return_value=True)
+    async def test_google_supplement_searches_by_short_title(self, _has_api_key):
         """A subtitle in the intitle: query would only narrow the Google Books match."""
         supplement_calls = []
 
@@ -638,6 +641,41 @@ class TestCompleteAuthorBackground:
         )
 
         assert supplement_calls[0]["title"] == "Magnolia Parks"
+        assert isinstance(result, dict)
+
+    @patch("goodreads.google_books.has_api_key", return_value=False)
+    async def test_supplement_skipped_when_no_api_key(self, _has_api_key):
+        """Google Books supplement should be skipped when GOOGLE_BOOKS_API_KEY is unset."""
+        supplement_calls = []
+
+        async def fake_supplement(**kwargs):
+            supplement_calls.append(kwargs)
+            return None
+
+        client = GoodreadsClient()
+        client.get_author_works_page = AsyncMock(return_value=([], None))
+
+        partial = {
+            "ForeignId": 6949698,
+            "Name": "Test Author",
+            "Works": [
+                {
+                    "ForeignId": 1,
+                    "Title": "No Ebook Here",
+                    "Books": [{"IsEbook": False, "ForeignId": 100}],
+                }
+            ],
+        }
+
+        result = await client.complete_author_background(
+            author_id=6949698,
+            partial_data=partial,
+            kca="kca://author/v1.A1",
+            first_page_next_token=None,
+            google_supplement_fn=fake_supplement,
+        )
+
+        assert len(supplement_calls) == 0
         assert isinstance(result, dict)
 
 

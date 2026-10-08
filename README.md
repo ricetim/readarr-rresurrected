@@ -104,8 +104,6 @@ not built.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GOOGLE_BOOKS_API_KEY` | *(empty)* | Optional. Improves ebook edition discovery for books with incomplete Goodreads records. [Get a key](https://developers.google.com/books/docs/v1/using#APIKey). |
-| `READARR_API_KEY` | *(empty)* | Optional. Set to your Readarr API key to enable the bookinfo → Readarr refresh webhook (auto-refresh when background pagination completes). |
-| `READARR_URL` | *(empty)* | Optional. Set to `http://localhost:8787` when using the webhook above. |
 | `BOOKINFO_GR_RATE` | `3` | Goodreads requests **per second**. Lower it if you see rate-limit errors. |
 | `BOOKINFO_BATCH_SIZE` | `20` | Works fetched per batch during background pagination. |
 | `BOOKINFO_LOG_DIR` | `/logs` | Where `bookinfo` writes its own log files. Set to a path under `/config` to keep them; if the directory cannot be created, file logging is skipped and output goes to the container log instead. |

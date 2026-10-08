@@ -11,6 +11,8 @@ from typing import Any, Callable, Coroutine, Optional
 
 import httpx
 
+import google_books
+
 from models import classify_edition, dedup_editions
 
 logger = logging.getLogger(__name__)
@@ -888,8 +890,15 @@ class GoodreadsClient:
                 if on_progress:
                     on_progress(works_by_id, total_count)
 
-        # Google Books supplement for works with no ebook editions
-        if google_supplement_fn:
+        # Google Books supplement for works with no ebook editions.
+        #
+        # Skipped when no API key is configured: the volumes endpoint rejects
+        # unkeyed requests, so the loop below would issue one guaranteed-failing
+        # request per work. That is a minute or more of wall-clock time for a
+        # large author, during which on_progress is never called and Readarr's
+        # no-progress poll in RefreshAuthorService times out at 300s -- leaving
+        # the author with a partial payload and its series deleted.
+        if google_supplement_fn and google_books.has_api_key():
             author_name = partial_data.get("Name", "")
             for work_id, work in works_by_id.items():
                 has_ebook = any(e.get("IsEbook") for e in work.get("Books", []))

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import glob
 import logging
 import os
@@ -14,7 +13,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse
 
 import google_books as gb_module
-from goodreads import GoodreadsClient, map_book, map_work
+from goodreads import GoodreadsClient, _build_series, map_book, map_work
 
 logger = logging.getLogger(__name__)
 
@@ -22,55 +21,12 @@ LOG_DIR = os.getenv("BOOKINFO_LOG_DIR", "/logs")
 LOG_KEEP = int(os.getenv("BOOKINFO_LOG_KEEP", "10"))
 GR_RATE = float(os.getenv("BOOKINFO_GR_RATE", "3"))
 BATCH_SIZE = int(os.getenv("BOOKINFO_BATCH_SIZE", "20"))
-READARR_URL = os.getenv("READARR_URL", "").rstrip("/")
-READARR_API_KEY = os.getenv("READARR_API_KEY", "")
 
 PENDING_TTL = 2 * 3600  # 2 hours in seconds
 
 goodreads_client: Optional[GoodreadsClient] = None
 _pending_complete: dict[int, tuple[dict, float]] = {}
 _background_in_progress: set[int] = set()
-
-
-async def _notify_readarr(author_id: int) -> None:
-    """Notify Readarr to refresh an author after bookinfo background completion.
-
-    Best-effort: retries on 5xx or network errors with 5s / 30s / 5m backoff.
-    Silently skips if READARR_URL or READARR_API_KEY are not configured.
-    """
-    if not READARR_URL or not READARR_API_KEY:
-        return
-    payload = {"name": "RefreshAuthor", "foreignAuthorId": str(author_id)}
-    headers = {"X-Api-Key": READARR_API_KEY, "Content-Type": "application/json"}
-    delays = [5, 30, 300]
-    async with httpx.AsyncClient() as client:
-        for attempt, delay in enumerate(delays, 1):
-            try:
-                r = await client.post(
-                    f"{READARR_URL}/api/v1/command",
-                    json=payload,
-                    headers=headers,
-                    timeout=10,
-                )
-                if r.status_code < 500:
-                    logger.debug(
-                        "Notified Readarr to refresh author %d (HTTP %d)", author_id, r.status_code
-                    )
-                    return
-                logger.warning(
-                    "Readarr returned %d for author %d (attempt %d/%d)",
-                    r.status_code, author_id, attempt, len(delays),
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to notify Readarr for author %d (attempt %d/%d): %s",
-                    author_id, attempt, len(delays), exc,
-                )
-            if attempt < len(delays):
-                await asyncio.sleep(delay)
-    logger.warning(
-        "Gave up notifying Readarr for author %d after %d attempts", author_id, len(delays)
-    )
 
 
 def _setup_file_logging() -> None:
@@ -107,10 +63,6 @@ async def lifespan(app: FastAPI):
     _setup_file_logging()
     global goodreads_client
     goodreads_client = GoodreadsClient(rate=GR_RATE, batch_size=BATCH_SIZE)
-    if READARR_URL and READARR_API_KEY:
-        logger.info("Readarr webhook enabled: %s", READARR_URL)
-    else:
-        logger.info("Readarr webhook disabled (READARR_URL/READARR_API_KEY not set)")
     try:
         yield
     finally:
@@ -220,6 +172,7 @@ async def get_author(author_id: int, background_tasks: BackgroundTasks, kca: str
             intermediate = {
                 **partial,
                 "Works": list(works_by_id.values()),
+                "Series": _build_series(works_by_id),
                 "TotalBookCount": total_count or partial.get("TotalBookCount", 0),
                 "Partial": True,
             }

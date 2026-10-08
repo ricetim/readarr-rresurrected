@@ -93,8 +93,6 @@ Quality profiles also gained an **Allowed Languages** setting, so automatic grab
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GOOGLE_BOOKS_API_KEY` | *(empty)* | Optional. Improves ebook edition data for books with incomplete Goodreads records. |
-| `READARR_API_KEY` | *(empty)* | Optional. Your Readarr API key — enables bookinfo to trigger a Readarr refresh automatically when background pagination finishes. |
-| `READARR_URL` | *(empty)* | Optional. Set to `http://localhost:8787` when using the auto-refresh webhook. |
 | `BOOKINFO_GR_RATE` | `3` | Goodreads requests **per second**. Lower it if you see rate-limit errors. |
 | `BOOKINFO_BATCH_SIZE` | `20` | Works fetched per batch during background pagination. |
 | `BOOKINFO_LOG_DIR` | `/logs` | Where `bookinfo` writes its own log files. Set to a path under `/config` to keep them; if the directory cannot be created, file logging is skipped and output goes to the container log instead. |
