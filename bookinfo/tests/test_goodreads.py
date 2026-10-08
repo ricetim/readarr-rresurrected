@@ -300,6 +300,60 @@ class TestMapBook:
         assert "2014-04-01" in result["ReleaseDate"]
 
 
+def _magnolia(edition_title: str, work_title: str) -> dict:
+    """Book node whose titles differ only after the colon, as in issue #6."""
+    return {
+        **_GR_BOOK,
+        "title": edition_title,
+        "titlePrimary": edition_title.split(":")[0],
+        "work": {
+            **_GR_BOOK["work"],
+            "bestBook": {
+                **_GR_BOOK["work"]["bestBook"],
+                "title": work_title,
+                "titlePrimary": work_title.split(":")[0],
+            },
+        },
+    }
+
+
+class TestTitles:
+    def test_book_title_keeps_subtitle(self):
+        book = _magnolia("Magnolia Parks: The Long Way Home", "Magnolia Parks: The Long Way Home")
+        result = map_book(book, author_foreign_id=21650647)
+        assert result["Title"] == "Magnolia Parks: The Long Way Home"
+        assert result["FullTitle"] == "Magnolia Parks: The Long Way Home"
+        assert result["ShortTitle"] == "Magnolia Parks"
+
+    def test_work_title_keeps_subtitle(self):
+        book = _magnolia("Magnolia Parks: Into the Dark", "Magnolia Parks: Into the Dark")
+        result = map_work(book, [], author_foreign_id=21650647)
+        assert result["Title"] == "Magnolia Parks: Into the Dark"
+        assert result["ShortTitle"] == "Magnolia Parks"
+
+    def test_books_differing_only_by_subtitle_stay_distinct(self):
+        titles = {
+            map_work(_magnolia(t, t), [], author_foreign_id=21650647)["Title"]
+            for t in ("Magnolia Parks", "Magnolia Parks: The Long Way Home", "Magnolia Parks: Into the Dark")
+        }
+        assert len(titles) == 3
+
+    def test_work_is_named_after_its_best_book_not_the_looked_up_edition(self):
+        book = _magnolia("Magnolia Parks: Ins Dunkle", "Magnolia Parks: Into the Dark")
+        result = map_work(book, [], author_foreign_id=21650647)
+        assert result["Title"] == "Magnolia Parks: Into the Dark"
+
+    def test_falls_back_to_primary_title_when_full_title_missing(self):
+        book = {**_GR_BOOK, "title": None, "titlePrimary": "The Goblin Emperor"}
+        result = map_book(book, author_foreign_id=6949698)
+        assert result["Title"] == "The Goblin Emperor"
+        assert result["ShortTitle"] == "The Goblin Emperor"
+
+    def test_title_without_subtitle_is_unchanged(self):
+        result = map_book(_GR_BOOK, author_foreign_id=6949698)
+        assert result["Title"] == result["ShortTitle"] == "The Goblin Emperor"
+
+
 class TestFetchAuthorFastPath:
     @respx.mock
     async def test_returns_author_dict_with_works(self):
@@ -550,6 +604,40 @@ class TestCompleteAuthorBackground:
 
         assert len(supplement_calls) == 1
         assert supplement_calls[0]["title"] == "No Ebook Here"
+
+    async def test_google_supplement_searches_by_short_title(self):
+        """A subtitle in the intitle: query would only narrow the Google Books match."""
+        supplement_calls = []
+
+        async def fake_supplement(**kwargs):
+            supplement_calls.append(kwargs)
+            return None
+
+        client = GoodreadsClient()
+        client.get_author_works_page = AsyncMock(return_value=([], None))
+
+        partial = {
+            "ForeignId": 6949698,
+            "Name": "Test Author",
+            "Works": [
+                {
+                    "ForeignId": 1,
+                    "Title": "Magnolia Parks: Into the Dark",
+                    "ShortTitle": "Magnolia Parks",
+                    "Books": [{"IsEbook": False, "ForeignId": 100}],
+                }
+            ],
+        }
+
+        result = await client.complete_author_background(
+            author_id=6949698,
+            partial_data=partial,
+            kca="kca://author/v1.A1",
+            first_page_next_token=None,
+            google_supplement_fn=fake_supplement,
+        )
+
+        assert supplement_calls[0]["title"] == "Magnolia Parks"
         assert isinstance(result, dict)
 
 

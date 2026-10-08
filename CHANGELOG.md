@@ -25,6 +25,17 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Books whose titles differ only by subtitle no longer collide.** Titles were cut off at the
+  colon, so "Magnolia Parks", "Magnolia Parks: The Long Way Home" and "Magnolia Parks: Into the
+  Dark" all became "Magnolia Parks". Their files resolved to the same folder, so the second
+  import failed with "destination already exists", and releases could be matched to the wrong
+  book. Books now keep their full title, and the `{Book Subtitle}` naming token, which was always
+  empty, now works. **Heads-up:** after the next refresh, any book with a subtitle is renamed in
+  Readarr. If your book naming uses `{Book Title}`, new files for those books go into a folder
+  that includes the subtitle, and a rename preview will offer to move existing ones. To keep the
+  short names, use `{Book TitleNoSub}` instead. Reported by
+  [@12999mike](https://github.com/12999mike).
+
 ## [11.1.3] - 2026-09-29
 
 ### Fixed
