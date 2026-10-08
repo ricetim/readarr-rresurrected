@@ -7,6 +7,8 @@ import httpx
 import pytest
 import respx
 
+from unittest.mock import patch
+
 from goodreads import GRAPHQL_KEY, GRAPHQL_URL, GoodreadsClient, RateLimiter
 
 
@@ -517,6 +519,7 @@ class TestCompleteAuthorBackground:
         assert result is not None
         assert isinstance(result, dict)
 
+    @patch("goodreads.google_books.has_api_key", return_value=True)
     async def test_runs_google_supplement_for_works_without_ebook(self):
         """Works with no ebook editions should trigger google_supplement_fn."""
         supplement_calls = []
@@ -550,6 +553,41 @@ class TestCompleteAuthorBackground:
 
         assert len(supplement_calls) == 1
         assert supplement_calls[0]["title"] == "No Ebook Here"
+        assert isinstance(result, dict)
+
+    @patch("goodreads.google_books.has_api_key", return_value=False)
+    async def test_supplement_skipped_when_no_api_key(self):
+        """Google Books supplement should be skipped when GOOGLE_BOOKS_API_KEY is unset."""
+        supplement_calls = []
+
+        async def fake_supplement(**kwargs):
+            supplement_calls.append(kwargs)
+            return None
+
+        client = GoodreadsClient()
+        client.get_author_works_page = AsyncMock(return_value=([], None))
+
+        partial = {
+            "ForeignId": 6949698,
+            "Name": "Test Author",
+            "Works": [
+                {
+                    "ForeignId": 1,
+                    "Title": "No Ebook Here",
+                    "Books": [{"IsEbook": False, "ForeignId": 100}],
+                }
+            ],
+        }
+
+        result = await client.complete_author_background(
+            author_id=6949698,
+            partial_data=partial,
+            kca="kca://author/v1.A1",
+            first_page_next_token=None,
+            google_supplement_fn=fake_supplement,
+        )
+
+        assert len(supplement_calls) == 0
         assert isinstance(result, dict)
 
 

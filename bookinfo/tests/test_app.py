@@ -267,6 +267,46 @@ async def test_get_book_bulk_returns_works(app_and_client):
 
 
 @pytest.mark.asyncio
+async def test_on_progress_series_covers_all_pages(app_and_client):
+    """on_progress should produce Series covering works from all pages fetched so far."""
+    import app as app_module
+
+    client, mock_gr = app_and_client
+
+    async def mock_complete(**kwargs):
+        on_progress = kwargs.get("on_progress")
+        if on_progress:
+            works_by_id = {
+                999: {
+                    "ForeignId": 999,
+                    "Title": "Narnia",
+                    "Books": [],
+                    "Series": [{"ForeignId": 1001, "Title": "Chronicles of Narnia"}],
+                },
+                888: {
+                    "ForeignId": 888,
+                    "Title": "Perelandra",
+                    "Books": [],
+                    "Series": [{"ForeignId": 1002, "Title": "Space Trilogy"}],
+                },
+            }
+            on_progress(works_by_id, total_count=2)
+        return kwargs.get("partial_data", {})
+
+    mock_gr.complete_author_background = AsyncMock(side_effect=mock_complete)
+
+    response = await client.get("/author/3389")
+    assert response.status_code == 200
+
+    pending = app_module._pending_complete.get(3389)
+    assert pending is not None
+    data, _ = pending
+    series_ids = {s["ForeignId"] for s in data.get("Series", [])}
+    assert 1001 in series_ids
+    assert 1002 in series_ids
+
+
+@pytest.mark.asyncio
 async def test_post_book_bulk_redirects_to_get(app_and_client):
     client, mock_gr = app_and_client
     response = await client.post("/book/bulk", json=[42640737, 12345], follow_redirects=False)
