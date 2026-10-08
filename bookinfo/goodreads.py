@@ -80,7 +80,7 @@ query GetBook($legacyId: Int!) {
       id legacyId
       details { webUrl publicationTime }
       bestBook {
-        legacyId titlePrimary
+        legacyId title titlePrimary
         primaryContributorEdge { role node { legacyId } }
       }
       editions { edges { node { ...BookInfo } } }
@@ -164,7 +164,7 @@ query Search($query: String!) {
 _BATCH_BOOK_ALIAS = (
     "{alias}: getBookByLegacyId(legacyId: {lid}) {{ ...BookInfo "
     "work {{ id legacyId details {{ webUrl publicationTime }} "
-    "bestBook {{ legacyId titlePrimary "
+    "bestBook {{ legacyId title titlePrimary "
     "primaryContributorEdge {{ role node {{ legacyId }} }} }} "
     "editions {{ edges {{ node {{ ...BookInfo }} }} }} }} }}"
 )
@@ -184,15 +184,54 @@ def _parse_date(publication_time) -> tuple[Optional[str], Optional[str]]:
     (integer milliseconds or seconds as a float/int).
     """
     import datetime
+
     if not publication_time:
         return None, None
+
+    raw: Optional[str] = None
+
     if isinstance(publication_time, (int, float)):
-        # Unix timestamp; Goodreads uses milliseconds (abs value > 1e10)
-        ts = publication_time / 1000.0 if abs(publication_time) > 1e10 else float(publication_time)
-        raw = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        try:
+            # Unix timestamp; Goodreads uses milliseconds (abs value > 1e10)
+            ts = publication_time / 1000.0 if abs(publication_time) > 1e10 else float(publication_time)
+
+            # Python 3.12+ tz-aware UTC timestamp conversion
+            dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+
+            # Guard against out-of-range or corrupted years (e.g., 20221)
+            if 1 <= dt.year <= 2100:
+                raw = dt.strftime("%Y-%m-%d")
+        except (ValueError, OverflowError, OSError):
+            return None, None
     else:
-        raw = str(publication_time)[:10]  # "2014-04-01"
+        # String input parsing
+        s_val = str(publication_time).strip()
+        if len(s_val) >= 10 and s_val[:4].isdigit():
+            # Basic sanity check that string starts with a 4-digit year
+            year = int(s_val[:4])
+            if 1 <= year <= 2100:
+                raw = s_val[:10]
+
+    if not raw:
+        return None, None
+
     return f"{raw}T07:00:00Z", raw
+
+
+def _titles(gql_book: dict) -> dict:
+    """Title fields for a Goodreads book node.
+
+    Goodreads' ``title`` is the full title and ``titlePrimary`` only the part
+    before the colon. Readarr reads ``Title`` alone, so it must be the full one:
+    books in a series often differ only by subtitle ("Magnolia Parks: The Long
+    Way Home", "Magnolia Parks: Into the Dark"), and short titles gave them
+    identical names, folders and file paths. Readarr derives the short form
+    itself wherever it wants one: the {Book TitleNoSub} naming token, indexer
+    queries and import matching all strip the subtitle.
+    """
+    primary = gql_book.get("titlePrimary") or ""
+    full = gql_book.get("title") or primary
+    return {"Title": full, "FullTitle": full, "ShortTitle": primary or full}
 
 
 def map_book(gql_book: dict, author_foreign_id: int) -> dict:
@@ -218,9 +257,7 @@ def map_book(gql_book: dict, author_foreign_id: int) -> dict:
         "KCA": gql_book.get("id", ""),
         "Asin": details.get("asin") or "",
         "Isbn13": details.get("isbn13") or "",
-        "Title": gql_book.get("titlePrimary") or gql_book.get("title") or "",
-        "FullTitle": gql_book.get("titlePrimary") or gql_book.get("title") or "",
-        "ShortTitle": gql_book.get("title") or "",
+        **_titles(gql_book),
         "Language": lang_obj.get("name", ""),
         "Format": fmt,
         "IsEbook": is_ebook,
@@ -301,9 +338,9 @@ def map_work(gql_book: dict, editions: list[dict], author_foreign_id: int) -> di
     return {
         "ForeignId": work.get("legacyId", 0),
         "KCA": work.get("id", ""),
-        "Title": best_book.get("titlePrimary") or gql_book.get("titlePrimary") or "",
-        "FullTitle": best_book.get("titlePrimary") or gql_book.get("titlePrimary") or "",
-        "ShortTitle": best_book.get("titlePrimary") or gql_book.get("titlePrimary") or "",
+        # The work is named after its best book, not the edition that was looked up,
+        # which may be a translation.
+        **_titles(best_book if best_book.get("title") or best_book.get("titlePrimary") else gql_book),
         "Url": work_details.get("webUrl") or "",
         "ReleaseDate": release_date,
         "ReleaseDateRaw": release_date_raw,
@@ -865,9 +902,12 @@ class GoodreadsClient:
             author_name = partial_data.get("Name", "")
             for work_id, work in works_by_id.items():
                 has_ebook = any(e.get("IsEbook") for e in work.get("Books", []))
-                if not has_ebook and work.get("Title"):
+                # Search by the short title: a subtitle in an intitle: query only
+                # narrows the match, and Google Books often lists it differently.
+                title = work.get("ShortTitle") or work.get("Title")
+                if not has_ebook and title:
                     synthetic = await google_supplement_fn(
-                        title=work["Title"],
+                        title=title,
                         author=author_name,
                         work_id=work_id,
                         author_foreign_id=author_id,

@@ -236,6 +236,7 @@
   "DataNone": "No books will be monitored",
   "Database": "Database",
   "DatabaseMigration": "Database Migration",
+  "DatabaseSchemaHealthCheckMessage": "Database is missing columns that Readarr expects: {0}. This usually means it was migrated by a different Readarr fork, which reused migration numbers for other changes. Some pages and searches will fail until this is fixed. Please open an issue on GitHub with your logs.",
   "Dates": "Dates",
   "DefaultMetadataProfileIdHelpText": "Default Metadata Profile for authors detected in this folder",
   "DefaultMonitorOptionHelpText": "Which books should be monitored on initial add for authors detected in this folder",

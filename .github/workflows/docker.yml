@@ -8,19 +8,35 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# One build per ref at a time. Two pushes to develop in quick succession used to start two
+# builds side by side, and whichever finished last took :develop, sometimes the older commit.
+# Now a newer branch build cancels the older one; its tag only moves when the final manifest is
+# pushed, so a cancelled build leaves :develop where it was. Each release tag is its own ref and
+# is never cancelled.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+
 jobs:
   docker:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      # The arm64 image's runtime stage (apk and pip) runs under emulation. Both builder
+      # stages run natively and cross-compile; see the Dockerfile.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -31,6 +47,8 @@ jobs:
       # Cutting a release pushes the branch and the tag, so both runs start within seconds of
       # each other. While they both wrote :latest, whichever finished last won it, and the
       # develop build usually did — leaving :latest on a dev-numbered image.
+      # Any other branch (a manual run to test a PR, say) builds but publishes nothing. It
+      # would otherwise take the develop path below and overwrite :develop with unmerged code.
       - name: Derive version and tags
         id: meta
         run: |
@@ -54,26 +72,41 @@ jobs:
             TAGS="ricetim/readarr-rresurrected:develop"
           fi
 
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] || [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            PUSH=true
+          else
+            PUSH=false
+          fi
+
           echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
           echo "assembly=${ASSEMBLY}" >> "$GITHUB_OUTPUT"
           echo "tags=${TAGS}"         >> "$GITHUB_OUTPUT"
-          echo "Building ${ASSEMBLY} -> ${TAGS}"
+          echo "push=${PUSH}"         >> "$GITHUB_OUTPUT"
+          if [ "$PUSH" = "true" ]; then
+            echo "Building ${ASSEMBLY} -> ${TAGS}"
+          else
+            echo "Building ${ASSEMBLY} from ${GITHUB_REF_NAME} (build only, nothing will be pushed)"
+          fi
 
+      # No build cache, deliberately. Measured on 2026-10-08, a warm cache saved about 40s of
+      # build time but cost 2m49s to export to a registry and 4.5-11 min to export to the
+      # GitHub Actions cache, so cached runs took 5-13 min against under 3 min without.
+      # The .NET layers rebuild on every commit anyway, since COPY src/ changes.
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
+          push: ${{ steps.meta.outputs.push == 'true' }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             ASSEMBLY_VERSION=${{ steps.meta.outputs.assembly }}
             BRANCH=develop
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Update Docker Hub README
-        uses: peter-evans/dockerhub-description@v4
+        if: steps.meta.outputs.push == 'true'
+        uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}

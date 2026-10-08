@@ -1,6 +1,7 @@
 using System;
 using System.Data.Common;
 using System.Data.SQLite;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using NLog;
@@ -113,7 +114,35 @@ namespace NzbDrone.Core.Datastore
                 return conn;
             });
 
+            // A partial migration leaves the schema behind the models on purpose.
+            if (!migrationContext.DesiredVersion.HasValue)
+            {
+                VerifySchema(db, migrationContext.MigrationType);
+            }
+
             return db;
+        }
+
+        private static void VerifySchema(IDatabase db, MigrationType migrationType)
+        {
+            try
+            {
+                var missing = SchemaVerifier.FindMissingColumns(db);
+
+                if (missing.Any())
+                {
+                    Logger.Error("{0} database is missing columns that Readarr expects: {1}. Queries against " +
+                                 "these tables will fail. This usually means the database was migrated by a " +
+                                 "different Readarr fork, which reused migration numbers for other changes.",
+                                 migrationType,
+                                 string.Join(", ", missing));
+                }
+            }
+            catch (Exception e)
+            {
+                // A diagnostic must never be the reason Readarr fails to start.
+                Logger.Warn(e, "Unable to verify the {0} database schema", migrationType);
+            }
         }
 
         private void CreateMain(string connectionString, MigrationContext migrationContext, DatabaseType databaseType)

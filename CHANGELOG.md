@@ -25,6 +25,61 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Authors no longer fail to load because of one bad publication date.** If any edition
+  carried a malformed date from Goodreads, such as one landing in the year 20221, the whole
+  author failed to load. That date is now ignored and the rest of the author loads normally.
+  Fixed by [@ZiIlaGit104](https://github.com/ZiIlaGit104) in
+  [#8](https://github.com/ricetim/readarr-rresurrected/pull/8).
+
+## [11.2.1] - 2026-10-08
+
+### New
+
+- **Docker images for arm64.** Every image is now published for `linux/arm64` as well as
+  `linux/amd64`, so Readarr runs on 64-bit Raspberry Pi OS, other arm64 boards and servers, and
+  Apple Silicon without building it yourself. Docker picks the right one automatically, and the
+  tags are unchanged. Requested by [@tlaziuk](https://github.com/tlaziuk); the groundwork,
+  including testing on a Raspberry Pi 5, was done by [@ZiIlaGit104](https://github.com/ZiIlaGit104)
+  in [#9](https://github.com/ricetim/readarr-rresurrected/pull/9).
+
+## [11.2.0] - 2026-10-08
+
+### New
+
+- **Readarr now checks its database at startup for missing columns.** A database upgraded by a
+  different Readarr fork can say it is fully up to date while missing parts that this fork's
+  pages and searches rely on, and until now that only showed up later as confusing errors.
+  Readarr now compares the database with what it expects each time it starts, and names any
+  missing columns in System → Status and in the log. It reports the problem but doesn't try to
+  repair it, because the skipped upgrade may have done more than add a column.
+
+### Fixed
+
+- **Refreshing an author no longer deletes most of its series.** Readarr fetches a large
+  author's books in pages, and treated each page as the complete list, deleting any series it
+  didn't mention yet. Series normally came back once the last page arrived, but a refresh that
+  stopped early (Readarr gives up after five minutes without progress) left them deleted, and
+  libraries lost series day by day. Series and their book links are now only removed once the
+  full list has arrived, the same rule books already followed. Lost series return on the next
+  complete refresh. Reported with measurements in
+  [#4](https://github.com/ricetim/readarr-rresurrected/pull/4) by
+  [@bknoodles](https://github.com/bknoodles).
+
+## [11.1.4] - 2026-10-08
+
+### Fixed
+
+- **Books whose titles differ only by subtitle no longer collide.** Titles were cut off at the
+  colon, so "Magnolia Parks", "Magnolia Parks: The Long Way Home" and "Magnolia Parks: Into the
+  Dark" all became "Magnolia Parks". Their files resolved to the same folder, so the second
+  import failed with "destination already exists", and releases could be matched to the wrong
+  book. Books now keep their full title, and the `{Book Subtitle}` naming token, which was always
+  empty, now works. **Heads-up:** after the next refresh, any book with a subtitle is renamed in
+  Readarr. If your book naming uses `{Book Title}`, new files for those books go into a folder
+  that includes the subtitle, and a rename preview will offer to move existing ones. To keep the
+  short names, use `{Book TitleNoSub}` instead. Reported by
+  [@12999mike](https://github.com/12999mike).
+
 ## [11.1.3] - 2026-09-29
 
 ### Fixed

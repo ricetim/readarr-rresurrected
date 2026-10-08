@@ -5,8 +5,11 @@ using NUnit.Framework;
 using NzbDrone.Core.Books;
 using NzbDrone.Core.Books.Commands;
 using NzbDrone.Core.Configuration;
+using NzbDrone.Core.Datastore;
+using NzbDrone.Core.ImportLists.Exclusions;
 using NzbDrone.Core.MediaFiles.Commands;
 using NzbDrone.Core.Messaging.Commands;
+using NzbDrone.Core.Profiles.Metadata;
 using NzbDrone.Core.RootFolders;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
@@ -98,6 +101,41 @@ namespace NzbDrone.Core.Test.Books
                         It.IsAny<CommandPriority>(),
                         It.IsAny<CommandTrigger>()),
                     Times.Never);
+        }
+
+        // RefreshSeriesService only skips deletions when the author it is handed says the data
+        // is partial, and the author it is handed is this local one, not the remote payload.
+        [TestCase(true)]
+        [TestCase(false)]
+        public void series_refresh_should_be_told_whether_the_author_data_is_partial(bool partial)
+        {
+            var metadata = new AuthorMetadata { Id = 5, ForeignAuthorId = "a1", Name = "Terry Pratchett" };
+            _author.AuthorMetadataId = 5;
+            _author.Metadata = new LazyLoaded<AuthorMetadata>(metadata);
+
+            var remote = new Author
+            {
+                Metadata = new LazyLoaded<AuthorMetadata>(metadata),
+                Series = new LazyLoaded<List<Series>>(new List<Series>()),
+                IsPartial = partial
+            };
+
+            Mocker.GetMock<IMetadataProfileService>()
+                .Setup(s => s.FilterBooks(It.IsAny<Author>(), It.IsAny<int>()))
+                .Returns(new List<Book>());
+
+            Mocker.GetMock<IImportListExclusionService>()
+                .Setup(s => s.FindByForeignId(It.IsAny<List<string>>()))
+                .Returns(new List<ImportListExclusion>());
+
+            Mocker.GetMock<IBookService>()
+                .Setup(s => s.GetBooksForRefresh(It.IsAny<int>(), It.IsAny<List<string>>()))
+                .Returns(new List<Book>());
+
+            Subject.RefreshEntityInfo(_author, null, remote, false, false, null);
+
+            Mocker.GetMock<IRefreshSeriesService>()
+                .Verify(s => s.RefreshSeriesInfo(5, It.IsAny<List<Series>>(), It.Is<Author>(a => a.IsPartial == partial), false, false, null), Times.Once);
         }
     }
 }

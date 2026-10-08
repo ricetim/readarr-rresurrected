@@ -1,5 +1,6 @@
 # ── Stage 1: build frontend ───────────────────────────────────────────────────
-FROM node:20-slim AS frontend-builder
+# The UI is identical on every architecture, so it is built once, natively.
+FROM --platform=$BUILDPLATFORM node:20-slim AS frontend-builder
 WORKDIR /src
 
 COPY package.json yarn.lock tsconfig.json ./
@@ -9,7 +10,10 @@ COPY frontend/ ./frontend/
 RUN yarn run build --env production
 
 # ── Stage 2: build backend ────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS backend-builder
+# The SDK also runs natively and cross-publishes for the target architecture, so a
+# multi-platform build only emulates the small runtime stage below (apk and pip),
+# rather than the whole compile.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:6.0 AS backend-builder
 WORKDIR /src
 
 COPY src/ ./src/
@@ -18,15 +22,23 @@ COPY Logo/ ./Logo/
 # four-part. The update feed must match exactly, or System.Version comparisons
 # treat "11.0.0" (revision -1) as different from "11.0.0.0".
 ARG ASSEMBLY_VERSION=11.0.0.0
-RUN dotnet msbuild src/Readarr.sln \
+# Set by buildx to the platform being built (amd64, arm64); .NET calls amd64 "x64".
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      amd64) RID=linux-musl-x64 ;; \
+      arm64) RID=linux-musl-arm64 ;; \
+      *) echo "unsupported TARGETARCH: '$TARGETARCH'" >&2; exit 1 ;; \
+    esac \
+    && dotnet msbuild src/Readarr.sln \
       -restore \
       -p:Configuration=Release \
       -p:Platform=Posix \
-      -p:RuntimeIdentifiers=linux-musl-x64 \
+      -p:RuntimeIdentifiers=$RID \
       -p:EnableAnalyzers=false \
       -p:TreatWarningsAsErrors=false \
       -p:AssemblyVersion=${ASSEMBLY_VERSION} \
-      -t:PublishAllRids
+      -t:PublishAllRids \
+    && mv _output/net6.0/$RID/publish /src/publish
 
 # ── Stage 3: runtime (Alpine) ─────────────────────────────────────────────────
 FROM alpine:3.22 AS runtime
@@ -66,7 +78,7 @@ ENV COMPlus_EnableDiagnostics=0
 ENV READARR__UPDATE__BRANCH=${BRANCH}
 
 # Copy published backend
-COPY --from=backend-builder /src/_output/net6.0/linux-musl-x64/publish/ /app/bin/
+COPY --from=backend-builder /src/publish/ /app/bin/
 # Copy built frontend
 COPY --from=frontend-builder /src/_output/UI/ /app/bin/UI/
 # Copy bookinfo Python app
