@@ -23,14 +23,18 @@ All notable changes to the fork are recorded here.
 
 ### New
 
+### Fixed
+
+## [11.2.1] - 2026-10-08
+
+### New
+
 - **Docker images for arm64.** Every image is now published for `linux/arm64` as well as
   `linux/amd64`, so Readarr runs on 64-bit Raspberry Pi OS, other arm64 boards and servers, and
   Apple Silicon without building it yourself. Docker picks the right one automatically, and the
   tags are unchanged. Requested by [@tlaziuk](https://github.com/tlaziuk); the groundwork,
   including testing on a Raspberry Pi 5, was done by [@ZiIlaGit104](https://github.com/ZiIlaGit104)
   in [#9](https://github.com/ricetim/readarr-rresurrected/pull/9).
-
-### Fixed
 
 ## [11.2.0] - 2026-10-08
 
