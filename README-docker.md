@@ -122,6 +122,10 @@ Compatible with data volumes from `ghcr.io/faustvii/readarr` and `hotio/readarr`
 | `11.1` | Latest patch within a minor release. |
 | `develop` | Built from every push to `develop`, ahead of the last release and not release tested. |
 
+Images are built for both `linux/amd64` and `linux/arm64` (64-bit Raspberry Pi OS, other arm64
+boards and servers, Apple Silicon), and Docker pulls the right one automatically. 32-bit ARM is
+not built.
+
 ---
 
 ## Credits
