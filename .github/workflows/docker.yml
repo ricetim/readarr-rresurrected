@@ -16,6 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The arm64 image's runtime stage (apk and pip) runs under emulation. Both builder
+      # stages run natively and cross-compile; see the Dockerfile.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -77,6 +84,7 @@ jobs:
         with:
           context: .
           push: ${{ steps.meta.outputs.push == 'true' }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
