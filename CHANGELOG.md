@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.1.4] - 2026-10-08
+
+### Fixed
+
 - **Books whose titles differ only by subtitle no longer collide.** Titles were cut off at the
   colon, so "Magnolia Parks", "Magnolia Parks: The Long Way Home" and "Magnolia Parks: Into the
   Dark" all became "Magnolia Parks". Their files resolved to the same folder, so the second
