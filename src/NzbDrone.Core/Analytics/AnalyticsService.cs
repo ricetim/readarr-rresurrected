@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using NzbDrone.Common.EnvironmentInfo;
 using NzbDrone.Core.Configuration;
 using NzbDrone.Core.Datastore;
 using NzbDrone.Core.History;
@@ -24,7 +23,10 @@ namespace NzbDrone.Core.Analytics
             _historyService = historyService;
         }
 
-        public bool IsEnabled => (_configFileProvider.AnalyticsEnabled && RuntimeInfo.IsProduction) || RuntimeInfo.IsDevelopment;
+        // Usage data went to the original Readarr project's services, which this fork neither runs
+        // nor controls, so it is never sent. The AnalyticsEnabled setting is kept only so existing
+        // config files still load.
+        public bool IsEnabled => false;
 
         public bool InstallIsActive
         {
