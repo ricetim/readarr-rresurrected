@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.2.3] - 2026-10-10
+
+### Fixed
+
 - **No more error reports sent to the original Readarr project.** Every release since 10.0
   sent error reports (error messages and stack traces) to the original Readarr project's error
   tracking service at sentry.servarr.com, and loaded that service's error reporting into the web
