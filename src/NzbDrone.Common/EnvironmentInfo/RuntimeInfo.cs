@@ -205,13 +205,10 @@ namespace NzbDrone.Common.EnvironmentInfo
 
         private static bool InternalIsOfficialBuild()
         {
-            //Official builds will never have such a high revision
-            if (BuildInfo.Version.Major >= 10 || BuildInfo.Version.Revision > 10000)
-            {
-                return false;
-            }
-
-            return true;
+            // Upstream treated any version from 10.0 up as a local build, which made every release of
+            // this fork run as a development build: HTTP redirects were not followed, and error
+            // reporting ignored the user's analytics setting. Release images now say so explicitly.
+            return BuildInfo.IsOfficialBuild;
         }
 
         public bool IsWindowsTray { get; private set; }

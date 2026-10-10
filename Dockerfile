@@ -37,6 +37,7 @@ RUN case "$TARGETARCH" in \
       -p:EnableAnalyzers=false \
       -p:TreatWarningsAsErrors=false \
       -p:AssemblyVersion=${ASSEMBLY_VERSION} \
+      -p:ReadarrOfficialBuild=true \
       -t:PublishAllRids \
     && mv _output/net6.0/$RID/publish /src/publish
 

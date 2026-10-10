@@ -24,6 +24,9 @@ namespace NzbDrone.Common.EnvironmentInfo
             }
 
             Release = $"{Version}-{Branch}";
+
+            IsOfficialBuild = attributes.OfType<AssemblyMetadataAttribute>()
+                .Any(a => a.Key == "ReadarrOfficialBuild" && a.Value == "true");
         }
 
         public static string AppName { get; } = "Readarr";
@@ -31,6 +34,9 @@ namespace NzbDrone.Common.EnvironmentInfo
         public static Version Version { get; }
         public static string Branch { get; }
         public static string Release { get; }
+
+        // Set only for release images, via -p:ReadarrOfficialBuild=true. See Directory.Build.props.
+        public static bool IsOfficialBuild { get; }
 
         public static DateTime BuildDateTime
         {

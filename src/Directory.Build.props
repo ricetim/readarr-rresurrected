@@ -95,6 +95,16 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- Release images pass -p:ReadarrOfficialBuild=true (see the Dockerfile). Anything else is a
+       local or test build, which RuntimeInfo treats as non-production. Upstream inferred this
+       from the version number instead, which misclassifies every 10.x and later release. -->
+  <ItemGroup Condition="'$(ReadarrProject)'=='true' and '$(ReadarrOfficialBuild)'=='true'">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ReadarrOfficialBuild</_Parameter1>
+      <_Parameter2>true</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <PropertyGroup>
     <!-- For now keep the NzbDrone namespace -->
     <RootNamespace Condition="'$(ReadarrProject)'=='true'">$(MSBuildProjectName.Replace('Readarr','NzbDrone'))</RootNamespace>

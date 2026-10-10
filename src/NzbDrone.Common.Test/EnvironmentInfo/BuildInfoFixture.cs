@@ -20,5 +20,14 @@ namespace NzbDrone.Common.Test.EnvironmentInfo
             BuildInfo.Branch.Should().NotBe("unknown");
             BuildInfo.Branch.Should().NotBeNullOrWhiteSpace();
         }
+
+        // Only release images pass -p:ReadarrOfficialBuild=true. If a local or test build ever
+        // counted as official, development-only behaviour would silently switch off for it.
+        [Test]
+        public void local_builds_should_not_be_official()
+        {
+            BuildInfo.IsOfficialBuild.Should().BeFalse();
+            RuntimeInfo.IsProduction.Should().BeFalse();
+        }
     }
 }
