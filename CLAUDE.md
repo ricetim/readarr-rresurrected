@@ -172,6 +172,13 @@ Other Readarr forks reuse migration numbers for different changes, so a database
 from one can be marked as migrated while missing columns; never assume `VersionInfo` reflects
 the schema.
 
+**Official builds and telemetry:** `RuntimeInfo.IsProduction` comes from `BuildInfo.IsOfficialBuild`,
+which is set only when the build passes `-p:ReadarrOfficialBuild=true` (the Dockerfile does). Upstream
+inferred it from the version number, which made every 10.x+ release a "development" build: HTTP
+redirects were not followed and Sentry reporting ignored the analytics setting. There is no
+telemetry: Sentry and analytics were removed, because their endpoints belong to the original
+Readarr project. Don't reintroduce `sentry.servarr.com`, piwik or similar endpoints.
+
 **LazyLoaded properties:** Many model properties use `LazyLoaded<T>` — these are populated on-demand by the repository layer and should not be assumed to be populated unless explicitly queried.
 
 **Adding a native indexer:** Follow the five-file convention used by `Indexers/MyAnonamouse/` and

@@ -25,6 +25,22 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **No more error reports sent to the original Readarr project.** Every release since 10.0
+  sent error reports (error messages and stack traces) to the original Readarr project's error
+  tracking service at sentry.servarr.com, and loaded that service's error reporting into the web
+  interface, even with **Send Anonymous Usage Data** turned off. The cause was a check inherited
+  from the original Readarr, which decided whether a build was a release from its version number,
+  and treated every version from 10.0 up as a developer's test build, where reporting is always
+  on. This project has never run that service or received any of that data. Both forms of
+  reporting are now removed entirely, along with the setting, which no longer did anything.
+- **Indexers that redirect downloads work again.** The same check made Readarr refuse to follow
+  HTTP redirects, so indexers whose downloads redirect, such as NZBs.in with Prowlarr's
+  **Redirect** option (which its documentation requires), failed with "Root element is missing"
+  before the NZB reached the download client. Release images are now marked as releases when
+  they're built, so redirects are followed again. A side effect: your browser can cache the web
+  interface again, so pages load faster. Reported by [@tucker19](https://github.com/tucker19)
+  in [#12](https://github.com/ricetim/readarr-rresurrected/issues/12).
+
 ## [11.2.2] - 2026-10-08
 
 ### Fixed
