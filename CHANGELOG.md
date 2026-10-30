@@ -25,6 +25,19 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **Books can be added from search again.** Opening or adding a single book from a search
+  failed with "A book with this ID was not found" for every book, because the bundled metadata
+  service couldn't look up a book on its own. Adding a whole author was not affected. Thanks to
+  @bknoodles ([#15](https://github.com/ricetim/readarr-rresurrected/pull/15)).
+- **Searches that find two editions of the same book show results.** Such a search, "Project
+  Hail Mary" among them, came back empty, and the log showed "An item with the same key has
+  already been added" ([#14](https://github.com/ricetim/readarr-rresurrected/issues/14)).
+- **Docker images report themselves as Docker installs.** System → Status showed no package
+  version or author and an update method of built-in, because the image wrote its package
+  details where Readarr doesn't look. Thanks to @lusoris ([#17](https://github.com/ricetim/readarr-rresurrected/pull/17)).
+- **Refreshing an author no longer fails on a book with no monitored edition** while
+  downloading covers. Thanks to @icco ([#18](https://github.com/ricetim/readarr-rresurrected/pull/18)).
+
 ## [11.3.1] - 2026-10-13
 
 ### New
