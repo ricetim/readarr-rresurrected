@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.3.2] - 2026-10-30
+
+### Fixed
+
 - **Books can be added from search again.** Opening or adding a single book from a search
   failed with "A book with this ID was not found" for every book, because the bundled metadata
   service couldn't look up a book on its own. Adding a whole author was not affected. Thanks to
