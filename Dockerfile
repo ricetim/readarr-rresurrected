@@ -91,7 +91,7 @@ COPY bookinfo/*.py /app/bookinfo/
 # Write package_info (matches faustvii convention)
 RUN printf "UpdateMethod=docker\nBranch=%s\nPackageVersion=%s\nPackageAuthor=[%s](https://github.com/%s)\nPackageOwner=%s\nPackageRepo=%s\n" \
       "${BRANCH}" "${VERSION}" "${VENDOR}" "${VENDOR}" "${PackageOwner}" "${PackageRepo}" \
-    > /app/bin/package_info \
+    > /app/package_info \
     && rm -rf /app/bin/Readarr.Update \
     && rm -f /app/bin/Readarr.Windows.*
 
