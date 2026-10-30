@@ -169,6 +169,18 @@ namespace NzbDrone.Core.Test.MediaCoverTests
         }
 
         [Test]
+        public void should_not_throw_when_book_has_no_monitored_edition()
+        {
+            _edition.Monitored = false;
+
+            Mocker.GetMock<IBookService>()
+                  .Setup(v => v.GetBooksByAuthor(It.IsAny<int>()))
+                  .Returns(new List<Book> { _book });
+
+            Assert.DoesNotThrow(() => Subject.HandleAsync(new AuthorRefreshCompleteEvent(_author)));
+        }
+
+        [Test]
         public void should_resize_covers_if_missing()
         {
             Mocker.GetMock<ICoverExistsSpecification>()
