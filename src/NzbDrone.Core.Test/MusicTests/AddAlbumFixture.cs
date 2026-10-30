@@ -94,6 +94,21 @@ namespace NzbDrone.Core.Test.MusicTests
         }
 
         [Test]
+        public void should_monitor_the_metadata_choice_if_the_requested_edition_is_not_returned()
+        {
+            // An import list can ask for any edition; bookinfo returns one per format and language
+            var newBook = BookToAdd("rare-edition", "book", "author");
+
+            GivenValidBook("book", "popular-edition");
+            GivenValidPath();
+
+            var book = Subject.AddBook(newBook);
+
+            book.Editions.Value.Should().ContainSingle(x => x.Monitored)
+                .Which.ForeignEditionId.Should().Be("popular-edition");
+        }
+
+        [Test]
         public void should_throw_if_book_cannot_be_found()
         {
             var newBook = BookToAdd("edition", "book", "author");

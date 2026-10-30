@@ -635,6 +635,47 @@ class GoodreadsClient:
             "LinkItems": link_items,
         }
 
+    async def get_work(self, work_legacy_id: int) -> Optional[dict]:
+        """Build a WorkResource for a work legacy id, or None if Goodreads has no such work.
+
+        There is no work-by-legacyId query, so one edition id is read from the work's
+        public editions page and hydrated. Work and book ids share one numeric space,
+        so the result is only accepted if the edition's work is the one asked for.
+        Upstream failures raise, so callers can tell them from a missing work.
+        """
+        await self._rate_limiter.acquire()
+        page = await self._client.get(
+            f"{XML_BASE}/work/editions/{work_legacy_id}",
+            headers={"User-Agent": DISCOVERY_UA},
+            follow_redirects=True,
+        )
+        if page.status_code == 404:
+            return None
+        page.raise_for_status()
+
+        m = re.search(r"/book/show/(\d+)", page.text)
+        if not m:
+            logger.warning("work %s: no editions found", work_legacy_id)
+            return None
+
+        books = await self.batch_graphql([int(m.group(1))])
+        if not books:
+            return None
+        gql_book = books[0]
+        work = gql_book.get("work") or {}
+        if work.get("legacyId") != work_legacy_id:
+            logger.warning("work %s: resolved to work %s", work_legacy_id, work.get("legacyId"))
+            return None
+
+        author = (gql_book.get("primaryContributorEdge") or {}).get("node") or {}
+        author_id = author.get("legacyId") or 0
+        inline = [e["node"] for e in (work.get("editions") or {}).get("edges", []) if e.get("node")]
+        editions = [map_book(gql_book, author_id)] + [map_book(e, author_id) for e in inline]
+        payload = map_work(gql_book, editions, author_id)
+        # map_work leaves the name to the author payload; here this is the only source
+        payload["Authors"][0]["Name"] = author.get("name") or ""
+        return payload
+
     async def get_editions_page(
         self, work_kca: str, token: Optional[str]
     ) -> tuple[list[int], Optional[str]]:

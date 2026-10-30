@@ -49,6 +49,10 @@ It fetches from Goodreads' GraphQL and XML APIs (the query shapes are replicated
 - Entry point `bookinfo/app.py`; Goodreads client in `goodreads.py`; Google Books in `google_books.py`; edition classification/dedup in `models.py`.
 - Listens on port **28202**.
 - Routes: `/author/{id}`, `/author/changed`, `/work/{id}`, `/book/{edition_id}`, `/book/bulk` (GET + POST), `/series/{id}`, `/search`, `/recommended`, and `DELETE /cache/author/{id}`.
+- Readarr identifies a book by its Goodreads **work** id, and Goodreads has no work-by-id query.
+  `/work/{id}` reads one edition id from the work's public editions page and hydrates it,
+  accepting it only if the edition's work is the one asked for: work and book ids share one
+  numeric space, so an unchecked lookup returns an unrelated book.
 - Long author fetches are paginated in the background. `/author/{id}` returns the works fetched
   so far with `"Partial": true`, and `RefreshAuthorService` polls it every few seconds until the
   payload is complete, giving up after 300s without new works. While data is partial, refreshes

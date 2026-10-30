@@ -143,8 +143,9 @@ async def test_author_changed_returns_limited(app_and_client):
 
 
 @pytest.mark.asyncio
-async def test_work_returns_404(app_and_client):
+async def test_work_returns_404_for_unknown_work(app_and_client):
     client, mock_gr = app_and_client
+    mock_gr.get_work = AsyncMock(return_value=None)
     response = await client.get("/work/12345")
     assert response.status_code == 404
 
@@ -429,7 +430,7 @@ async def test_work_returns_work_resource_for_valid_work_id(work_client):
     assert payload["Title"] == "Heaven and Earth"
     assert payload["Genres"] == ["Fantasy"]
     assert payload["Authors"] == [
-        {"ForeignId": AUTHOR_ID, "Name": "", "KCA": ""}
+        {"ForeignId": AUTHOR_ID, "Name": "Jonathan Yanez", "KCA": ""}
     ]
     assert [b["ForeignId"] for b in payload["Books"]] == [EDITION_ID]
     assert payload["Books"][0]["IsEbook"] is True
@@ -519,15 +520,33 @@ async def test_work_returns_404_when_graphql_returns_nothing(work_client):
 
 
 @pytest.mark.asyncio
-async def test_work_returns_404_when_editions_page_errors(work_client):
+async def test_work_returns_404_when_goodreads_has_no_such_work(work_client):
     client, app_module = work_client
     with respx.mock:
         respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
-            return_value=httpx.Response(500, text="boom")
+            return_value=httpx.Response(404, text="Not found")
         )
         gr = await _install_real_client(app_module)
 
         response = await client.get(f"/work/{WORK_ID}")
 
         assert response.status_code == 404
+        await gr.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 500])
+async def test_work_reports_upstream_failures_rather_than_not_found(work_client, status):
+    """A blocked or failing Goodreads must not look like a deleted work to Readarr."""
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(status, text="boom")
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code != 404
+        assert response.status_code >= 500
         await gr.close()

@@ -124,8 +124,22 @@ namespace NzbDrone.Core.Books
             newBook.Added = DateTime.UtcNow;
 
             newBook.Editions = tuple.Item2.Editions.Value;
-            newBook.Editions.Value.ForEach(x => x.Monitored = false);
-            newBook.Editions.Value.Single(x => x.ForeignEditionId == editionId).Monitored = true;
+
+            // The metadata keeps one edition per format and language, so an import list can ask
+            // for one it doesn't return; the edition the metadata monitors is kept then
+            var requested = newBook.Editions.Value.SingleOrDefault(x => x.ForeignEditionId == editionId);
+            if (requested != null)
+            {
+                newBook.Editions.Value.ForEach(x => x.Monitored = false);
+                requested.Monitored = true;
+            }
+            else
+            {
+                _logger.Debug("Edition {0} of book {1} not found, monitoring {2} instead",
+                    editionId,
+                    newBook.ForeignBookId,
+                    newBook.Editions.Value.SingleOrDefault(x => x.Monitored)?.ForeignEditionId);
+            }
 
             var metadata = tuple.Item3.FirstOrDefault(x => x.ForeignAuthorId == tuple.Item1);
             newBook.AuthorMetadata = metadata;
