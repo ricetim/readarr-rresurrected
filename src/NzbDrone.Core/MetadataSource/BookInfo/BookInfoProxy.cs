@@ -517,7 +517,8 @@ namespace NzbDrone.Core.MetadataSource.BookInfo
             var sanitizedWorks = SanitizeWorks(resource.Works ?? new List<WorkResource>(), _logger);
             Normalize(sanitizedWorks);
 
-            foreach (var work in sanitizedWorks)
+            // A search that hits two editions of one work returns that work twice; keep the first hit
+            foreach (var work in sanitizedWorks.DistinctBy(x => x.ForeignId))
             {
                 var book = MapBook(work);
 
