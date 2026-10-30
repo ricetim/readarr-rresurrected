@@ -9,9 +9,13 @@ import importlib
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 import pytest_asyncio
+import respx
 from httpx import ASGITransport, AsyncClient
+
+from goodreads import GRAPHQL_URL, XML_BASE, GoodreadsClient
 
 
 @pytest_asyncio.fixture
@@ -317,3 +321,213 @@ async def test_post_book_bulk_redirects_to_get(app_and_client):
     location = response.headers["location"]
     assert "id=42640737" in location
     assert "id=12345" in location
+
+
+# ---------------------------------------------------------------------------
+# GET /work/{work_id} — edition-page resolution + hydration (issue #14)
+# ---------------------------------------------------------------------------
+
+WORK_ID = 210573212
+EDITION_ID = 204662948
+SECOND_EDITION_ID = 204662949
+AUTHOR_ID = 4242
+
+
+def _edition_node(legacy_id: int, fmt: str, ratings: int, language: str = "English") -> dict:
+    """A BookInfo-shaped GraphQL node for one edition."""
+    return {
+        "id": f"kca://book/amzn1.gr.book.v1.{legacy_id}",
+        "legacyId": legacy_id,
+        "title": "Heaven and Earth",
+        "titlePrimary": "Heaven and Earth",
+        "webUrl": f"https://www.goodreads.com/book/show/{legacy_id}",
+        "imageUrl": "https://images.example/cover.jpg",
+        "bookGenres": [],
+        "bookSeries": [],
+        "details": {
+            "asin": "",
+            "isbn13": "",
+            "format": fmt,
+            "numPages": 320,
+            "language": {"name": language},
+            "publisher": "Test Press",
+            "publicationTime": 1600000000000,
+        },
+        "primaryContributorEdge": {"node": {"legacyId": AUTHOR_ID, "name": "Jonathan Yanez"}},
+        "stats": {"averageRating": 4.1, "ratingsCount": ratings, "ratingsSum": ratings * 4},
+    }
+
+
+def _book_response(work_legacy_id: int, inline_editions: list[dict] | None = None) -> dict:
+    """A GetBookByLegacyId result: one book node embedding its work."""
+    book = _edition_node(EDITION_ID, "Kindle Edition", ratings=500)
+    book["work"] = {
+        "id": "kca://work/amzn1.gr.work.v1.test",
+        "legacyId": work_legacy_id,
+        "details": {
+            "webUrl": f"https://www.goodreads.com/work/{work_legacy_id}",
+            "publicationTime": 1600000000000,
+        },
+        "bestBook": {
+            "legacyId": EDITION_ID,
+            "titlePrimary": "Heaven and Earth",
+            "primaryContributorEdge": {"role": "PRIMARY", "node": {"legacyId": AUTHOR_ID}},
+        },
+        "editions": {"edges": [{"node": e} for e in (inline_editions or [])]},
+    }
+    book["bookGenres"] = [{"genre": {"name": "Fantasy"}}]
+    return book
+
+
+EDITION_PAGE_HTML = (
+    "<html><body>"
+    f'<a class="bookTitle" href="/book/show/{EDITION_ID}">Heaven and Earth</a>'
+    f'<a class="bookTitle" href="/book/show/{SECOND_EDITION_ID}">Heaven and Earth</a>'
+    "</body></html>"
+)
+
+
+@pytest_asyncio.fixture
+async def work_client():
+    """ASGI client with a *real* GoodreadsClient wired in (HTTP mocked via respx)."""
+    import app as app_module
+
+    importlib.reload(app_module)
+    app_module._pending_complete.clear()
+    transport = ASGITransport(app=app_module.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client, app_module
+
+
+async def _install_real_client(app_module, rate: float = 1000):
+    """Create the client *inside* the active respx router so its transport is mocked."""
+    client = GoodreadsClient(rate=rate, batch_size=20)
+    app_module.goodreads_client = client
+    return client
+
+
+@pytest.mark.asyncio
+async def test_work_returns_work_resource_for_valid_work_id(work_client):
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(200, text=EDITION_PAGE_HTML)
+        )
+        graphql = respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={"data": {"q0": _book_response(WORK_ID)}})
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 200
+        assert graphql.called
+        await gr.close()
+
+    payload = response.json()
+    assert payload["ForeignId"] == WORK_ID
+    assert payload["Title"] == "Heaven and Earth"
+    assert payload["Genres"] == ["Fantasy"]
+    assert payload["Authors"] == [
+        {"ForeignId": AUTHOR_ID, "Name": "", "KCA": ""}
+    ]
+    assert [b["ForeignId"] for b in payload["Books"]] == [EDITION_ID]
+    assert payload["Books"][0]["IsEbook"] is True
+    assert payload["Books"][0]["Language"] == "English"
+
+
+@pytest.mark.asyncio
+async def test_work_includes_inline_editions_from_the_work(work_client):
+    client, app_module = work_client
+    inline = [_edition_node(SECOND_EDITION_ID, "Hardcover", ratings=10)]
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(200, text=EDITION_PAGE_HTML)
+        )
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(
+                200, json={"data": {"q0": _book_response(WORK_ID, inline)}}
+            )
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 200
+        await gr.close()
+
+    books = response.json()["Books"]
+    assert {b["ForeignId"] for b in books} == {EDITION_ID, SECOND_EDITION_ID}
+    assert {b["Format"] for b in books} == {"Kindle Edition", "Hardcover"}
+
+
+@pytest.mark.asyncio
+async def test_work_refuses_to_hydrate_a_different_work(work_client):
+    """Work and book ids share one numeric space — a mismatch must 404, not return a book."""
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(200, text=EDITION_PAGE_HTML)
+        )
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(
+                200, json={"data": {"q0": _book_response(999999999)}}
+            )
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Work not found"}
+        await gr.close()
+
+
+@pytest.mark.asyncio
+async def test_work_returns_404_when_editions_page_has_no_book_links(work_client):
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(200, text="<html><body>No editions</body></html>")
+        )
+        graphql = respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={"data": {}})
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 404
+        assert not graphql.called  # no edition id → no needless GraphQL call
+        await gr.close()
+
+
+@pytest.mark.asyncio
+async def test_work_returns_404_when_graphql_returns_nothing(work_client):
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(200, text=EDITION_PAGE_HTML)
+        )
+        respx.post(GRAPHQL_URL).mock(return_value=httpx.Response(200, json={"data": {}}))
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 404
+        await gr.close()
+
+
+@pytest.mark.asyncio
+async def test_work_returns_404_when_editions_page_errors(work_client):
+    client, app_module = work_client
+    with respx.mock:
+        respx.get(f"{XML_BASE}/work/editions/{WORK_ID}").mock(
+            return_value=httpx.Response(500, text="boom")
+        )
+        gr = await _install_real_client(app_module)
+
+        response = await client.get(f"/work/{WORK_ID}")
+
+        assert response.status_code == 404
+        await gr.close()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import glob
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -13,7 +14,14 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse
 
 import google_books as gb_module
-from goodreads import GoodreadsClient, _build_series, map_book, map_work
+from goodreads import (
+    DISCOVERY_UA,
+    XML_BASE,
+    GoodreadsClient,
+    _build_series,
+    map_book,
+    map_work,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +228,46 @@ async def delete_author_cache(author_id: int):
 
 @app.get("/work/{work_id}")
 async def get_work(work_id: int):
-    raise HTTPException(status_code=404, detail="Work not found")
+    payload = await _work_payload(work_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return payload
+
+
+async def _work_payload(work_legacy_id: int) -> dict | None:
+    """Build a WorkResource payload from a work legacy id alone.
+
+    Goodreads has no work-by-legacyId query, so resolve one edition from the
+    public work/editions page, then hydrate that edition.
+    """
+    try:
+        await goodreads_client._rate_limiter.acquire()
+        page = await goodreads_client._client.get(
+            f"{XML_BASE}/work/editions/{work_legacy_id}",
+            headers={"User-Agent": DISCOVERY_UA},
+            follow_redirects=True,
+        )
+        m = re.search(r"/book/show/(\d+)", page.text)
+        if not m:
+            logger.warning("work %s: no editions found", work_legacy_id)
+            return None
+        books = await goodreads_client.batch_graphql([int(m.group(1))])
+    except Exception as exc:
+        logger.warning("work %s: resolve failed: %s", work_legacy_id, exc)
+        return None
+
+    if not books:
+        return None
+    gql_book = books[0]
+    work = gql_book.get("work") or {}
+    if work.get("legacyId") != work_legacy_id:
+        logger.warning("work %s: resolved to work %s", work_legacy_id, work.get("legacyId"))
+        return None  # work/book ids share a numeric space - never hydrate the wrong book
+
+    author_id = ((gql_book.get("primaryContributorEdge") or {}).get("node") or {}).get("legacyId") or 0
+    inline = [e["node"] for e in (work.get("editions") or {}).get("edges", []) if e.get("node")]
+    editions = [map_book(gql_book, author_id)] + [map_book(e, author_id) for e in inline]
+    return map_work(gql_book, editions, author_id)
 
 
 @app.get("/book/bulk")
