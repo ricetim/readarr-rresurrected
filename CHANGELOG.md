@@ -25,6 +25,10 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+## [11.3.3] - 2026-10-31
+
+### Fixed
+
 - **One book Goodreads can't find no longer breaks a search or an author.** A search failed with
   "Unable to communicate with ReadarrAPI, returning status code: InternalServerError" when any of
   its results was missing from Goodreads, and adding an author could fail with "Author not found"
