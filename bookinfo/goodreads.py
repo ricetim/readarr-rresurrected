@@ -462,7 +462,15 @@ class GoodreadsClient:
             self._api_key = match.group(0)
             return True
 
-    async def _graphql_raw(self, body: dict, allow_key_refresh: bool = True) -> dict:
+    async def _graphql_raw(
+        self, body: dict, allow_key_refresh: bool = True, partial_ok: bool = False
+    ) -> dict:
+        """Run one GraphQL request and return its data.
+
+        A response whose only errors are RESOURCE_NOT_FOUND raises LookupError, unless
+        partial_ok is set: a batch of aliased queries then returns the aliases that
+        resolved, with null for the ones that didn't.
+        """
         await self._rate_limiter.acquire()
         used_key = self._api_key
         response = await self._client.post(
@@ -478,12 +486,15 @@ class GoodreadsClient:
         # WAFForbiddenException - AWS rate-limiting this IP - which a new key won't fix.
         if response.status_code == 401 and allow_key_refresh:
             if await self._refresh_api_key(used_key):
-                return await self._graphql_raw(body, allow_key_refresh=False)
+                return await self._graphql_raw(body, allow_key_refresh=False, partial_ok=partial_ok)
 
         response.raise_for_status()
         payload = response.json()
         if "errors" in payload:
             if all(e.get("errorType") == "RESOURCE_NOT_FOUND" for e in payload["errors"]):
+                if partial_ok:
+                    logger.debug("GraphQL: not found: %s", [e.get("path") for e in payload["errors"]])
+                    return payload.get("data") or {}
                 raise LookupError("Author not found in Goodreads")
             raise RuntimeError(f"GraphQL errors: {payload['errors']}")
         return payload.get("data", {})
@@ -505,7 +516,8 @@ class GoodreadsClient:
                 for i, lid in enumerate(chunk)
             )
             batch_query = _BOOK_FRAGMENT + "{\n" + aliases + "\n}"
-            data = await self._graphql_raw({"query": batch_query})
+            # One edition Goodreads can't find must not lose the rest of the batch
+            data = await self._graphql_raw({"query": batch_query}, partial_ok=True)
             for i in range(len(chunk)):
                 book_data = data.get(f"q{i}")
                 if book_data:

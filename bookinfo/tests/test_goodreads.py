@@ -88,6 +88,56 @@ class TestGraphQLClient:
         assert call_count == 2
         await client.close()
 
+    @staticmethod
+    def _not_found(alias: str) -> dict:
+        return {"path": [alias], "errorType": "RESOURCE_NOT_FOUND", "message": "Not found"}
+
+    @respx.mock
+    async def test_batch_graphql_keeps_books_that_resolved_when_one_is_not_found(self):
+        """Issue #19: one missing edition used to fail the whole search."""
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={
+                "data": {"q0": {"legacyId": 1, "work": {}}, "q1": None, "q2": {"legacyId": 3, "work": {}}},
+                "errors": [self._not_found("q1")],
+            })
+        )
+        client = GoodreadsClient()
+        results = await client.batch_graphql([1, 2, 3])
+        assert [r["legacyId"] for r in results] == [1, 3]
+        await client.close()
+
+    @respx.mock
+    async def test_batch_graphql_returns_nothing_when_no_book_is_found(self):
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={"data": {"q0": None}, "errors": [self._not_found("q0")]})
+        )
+        client = GoodreadsClient()
+        assert await client.batch_graphql([1]) == []
+        await client.close()
+
+    @respx.mock
+    async def test_batch_graphql_still_raises_on_other_errors(self):
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={
+                "data": {"q0": {"legacyId": 1, "work": {}}, "q1": None},
+                "errors": [self._not_found("q1"), {"path": ["q0"], "errorType": "INTERNAL", "message": "boom"}],
+            })
+        )
+        client = GoodreadsClient()
+        with pytest.raises(RuntimeError):
+            await client.batch_graphql([1, 2])
+        await client.close()
+
+    @respx.mock
+    async def test_single_query_not_found_still_raises_lookup_error(self):
+        respx.post(GRAPHQL_URL).mock(
+            return_value=httpx.Response(200, json={"data": {"getAuthor": None}, "errors": [self._not_found("getAuthor")]})
+        )
+        client = GoodreadsClient()
+        with pytest.raises(LookupError):
+            await client.graphql_query("query { getAuthor }", {})
+        await client.close()
+
 
 from goodreads import XML_KEY
 

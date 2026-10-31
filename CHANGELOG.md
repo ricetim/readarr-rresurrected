@@ -25,6 +25,12 @@ All notable changes to the fork are recorded here.
 
 ### Fixed
 
+- **One book Goodreads can't find no longer breaks a search or an author.** A search failed with
+  "Unable to communicate with ReadarrAPI, returning status code: InternalServerError" when any of
+  its results was missing from Goodreads, and adding an author could fail with "Author not found"
+  for the same reason. The books that were found are now shown. Thanks to @thejko
+  ([#19](https://github.com/ricetim/readarr-rresurrected/issues/19)).
+
 ## [11.3.2] - 2026-10-30
 
 ### Fixed
